@@ -1,0 +1,33 @@
+from pathlib import Path
+import torch,dill,json,hashlib
+from omegaconf import OmegaConf
+r=Path(__file__).parent;b=r.parent/'peg_paired_v1'
+p=r/'RL-100/train.py';s=p.read_text()
+needle='        #===============================================Stage 2 finetune dp3 by unio4 offline'
+assert s.count(needle)==1
+s=s.replace(needle,"        if getattr(cfg, 'stage1_only', False):\n            print('OFFLINE_FOUNDATION_COMPLETE', flush=True)\n            return\n"+needle)
+# Original counter increments per minibatch but is compared against epochs.
+s=s.replace('                with tqdm.tqdm(train_dataloader, desc=f"Training epoch {epoch}",','                epoch = local_epoch_idx + 1\n                with tqdm.tqdm(train_dataloader, desc=f"Training epoch {epoch}",',1)
+s=s.replace('                    epoch += 1\n                    for batch_idx, batch in enumerate(tepoch):','                    for batch_idx, batch in enumerate(tepoch):',1)
+needle='        dynamics_encoder = self.model.get_dynamics_encoder()'
+s=s.replace(needle,"        self.model.obs_encoder.eval()\n        if hasattr(self.model.obs_encoder, 'force_stochastic'):\n            self.model.obs_encoder.force_stochastic = False\n"+needle)
+p.write_text(s)
+manifest=[]
+for modality,prefix,gpu in [('3d','pcd',4),('2d','rgb',0)]:
+ source=b/f'runs/{prefix}_bc_seed300';cp=next((source/'retained_checkpoints').glob('epoch_0250_*.ckpt'))
+ cfg=OmegaConf.load(source/'.hydra/config.yaml');OmegaConf.set_struct(cfg,False)
+ cfg.training.resume=True;cfg.only_bc=False;cfg.offline=True;cfg.online=False;cfg.stage1_only=True
+ cfg.training.num_epochs=400;cfg.training.num_critic_epochs=100
+ cfg.dynamics.dynamics_max_epochs=100;cfg.dynamics.max_epochs_since_update=10;cfg.dynamics_type='mlp'
+ cfg.dynamics.fix_encoder=True;cfg.critic.fix_encoder=True;cfg.dynamics.norm_reward=False
+ cfg.offline_use_aug=False;cfg.unio4.fix_encoder=True;cfg.unio4.idql_eval=False
+ cfg.unio4.bppo_steps=2000;cfg.unio4.rollout_length=5;cfg.unio4.bppo_lr=5e-6
+ cfg.exp_name=f'peg_{modality}_offline_foundation_seed300'
+ run=r/f'runs/{prefix}_seed300';(run/'checkpoints').mkdir(parents=True)
+ payload=torch.load(cp,map_location='cpu',pickle_module=dill)
+ payload['state_dicts']['model']=payload['state_dicts']['ema_model']
+ payload['pickles']['_output_dir']=dill.dumps(str(run));payload['cfg']=cfg
+ torch.save(payload,run/'checkpoints/latest.ckpt',pickle_module=dill)
+ OmegaConf.save(cfg,r/f'RL-100/rl_100/config/peg_{modality}_foundation.yaml')
+ manifest.append(dict(modality=modality,gpu=gpu,seed=300,bc_epoch=250,bc_checkpoint=str(cp),bc_sha256=hashlib.sha256(cp.read_bytes()).hexdigest(),run_dir=str(run),stage='IQL Q/V then one-step learned dynamics; no policy improvement yet',critic_epochs=100,dynamics_max_epochs=100))
+(r/'manifest.json').write_text(json.dumps(manifest,indent=2));print('FOUNDATION_CONFIGURED',flush=True)

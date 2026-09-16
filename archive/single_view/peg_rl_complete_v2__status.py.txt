@@ -1,0 +1,10 @@
+from pathlib import Path
+import json,re,time,datetime
+r=Path(__file__).parent
+print(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat())
+for j in json.loads((r/'full_jobs.json').read_text()):
+ s=Path(j['log']).read_text(errors='replace');p=Path(j['run_dir']);state=json.loads((p/'pipeline_status.json').read_text())
+ updates=re.findall(r'bppo updating .*?(\d+)/2000',s)
+ online=re.findall(r'step (\d+); collecting data time: ([\d.]+); update time: ([\d.]+)',s)
+ scores=re.findall(r'Step: (\d+), EMA Score: ([\d.]+), Normal Score: ([\d.]+)',s)
+ print(json.dumps(dict(modality=j['modality'],seed=j['seed'],gpu=j['gpu'],parent_alive=Path('/proc/'+str(j['pid'])).exists(),phase=state['phase'],offline_update=updates[-1] if updates else None,offline_done=bool(j.get('completed_offline_source')),offline_source=j.get('completed_offline_source'),online_step=online[-1] if online else None,online_done='ONLINE_POLICY_COMPLETE' in s,latest_offline_eval=scores[-1] if scores else None,error=('Traceback' in s),last_log_cst=datetime.datetime.fromtimestamp(Path(j['log']).stat().st_mtime,datetime.timezone(datetime.timedelta(hours=8))).isoformat())))

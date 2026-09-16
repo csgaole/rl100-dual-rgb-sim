@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+EXP=<EXPERIMENT_ROOT>
+export CUDA_VISIBLE_DEVICES=${GPU_ID:-6} MUJOCO_EGL_DEVICE_ID=${GPU_ID:-6} EGL_DEVICE_ID=${GPU_ID:-6}
+export MUJOCO_GL=egl PYOPENGL_PLATFORM=egl HYDRA_FULL_ERROR=1
+export LD_LIBRARY_PATH=<HOME>/.mujoco/mujoco210/bin:/usr/lib/nvidia:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+export PYTHONPATH=$EXP/repo/RL-100:${PYTHONPATH:-}
+export OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1
+cd "$EXP/repo/RL-100"
+exec <LOCAL_PATH> -u train.py --config-name=experiment_dp3 \
+ hydra.run.dir="$EXP/runs/pcd_seed${SEED:-100}" training.seed=${SEED:-100} "$@"

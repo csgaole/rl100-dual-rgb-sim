@@ -1,0 +1,25 @@
+from pathlib import Path
+import json, torch, dill, hydra, numpy as np, random
+from omegaconf import OmegaConf
+root=Path(__file__).resolve().parent
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+results=[]
+for seed in [100,300]:
+ cfg=OmegaConf.load(root/f'runs/dual_rgb_bc_seed{seed}/.hydra/config.yaml')
+ p=torch.load(root/f'repaired_sources/seed{seed}/checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+ raw=p['state_dicts']['model'];ema=p['state_dicts']['ema_model']
+ keys=[k for k in raw if k.endswith(('running_mean','running_var','num_batches_tracked'))]
+ assert all(torch.equal(raw[k],ema[k]) for k in keys)
+ model=hydra.utils.instantiate(cfg.policy)
+ model.load_state_dict(ema,strict=True);model.cuda().eval()
+ for split,base,n in [('validation',700000,20),('heldout',900000,100)]:
+  torch.manual_seed(base);torch.cuda.manual_seed_all(base);np.random.seed(base);random.seed(base)
+  runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(root/'repair_evaluation'),eval_episodes=n)
+  runner.eval_seed_base=base
+  m=runner.run(model)
+  results.append(dict(seed=seed,split=split,episodes=n,eval_seed_base=base,checkpoint_epoch=150,success=float(m['test_mean_score']),return_mean=float(m['mean_returns'])))
+  print('REPAIR_EVAL',json.dumps(results[-1]),flush=True)
+  (root/'repair_evaluation.json').write_text(json.dumps(results,indent=2))
+  runner.env.close();del runner
+ del model,p;torch.cuda.empty_cache()
+print('REPAIR_EVAL_COMPLETE',flush=True)

@@ -1,0 +1,83 @@
+from pathlib import Path
+import os,json,torch,dill,hydra,numpy as np,random,hashlib,time
+from omegaconf import OmegaConf
+from types import SimpleNamespace
+r=Path(__file__).resolve().parent;out=r/('aligned_value_smoke' if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else 'offline_diagnostics_v3');out.mkdir(exist_ok=True)
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True)
+def rng(s):torch.manual_seed(s);torch.cuda.manual_seed_all(s);np.random.seed(s);random.seed(s)
+def inp(obs):return {k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+def digest(obs):return {k:hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k,v in obs.items()}
+for seed in ([100] if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else [100,300]):
+ run=r/f'rl_full_seed{seed}';c=OmegaConf.load(run/'.hydra/config.yaml');p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+ m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.cuda().eval();m.use_aug=False
+ # Construct exactly the critic architecture used by the trainer.
+ src=(r/'train_offline_fixed.py').read_text();a=src.index('        iql, Q_bc, value = self.model.initialize_critic(');z=src.index('        stage1_artifact_dir',a)
+ scope=dict(self=SimpleNamespace(model=m,cfg=c),cfg=c,device=torch.device('cuda'))
+ exec(src[a:z].replace('        iql, Q_bc, value =','iql, Q_bc, value =',1),scope)
+ iql=scope['iql'];iql.load(str(run/'Q_bc_20.pt'),str(run/'value_20.pt'),str(run/'encoder.pt') if (run/'encoder.pt').exists() else None);iql.eval();iql.obs_encoder.eval()
+
+ import copy
+ from rl_100.common.pytorch_util import dict_apply
+ from torch.utils.data import DataLoader
+ # FQE targets the BC policy replanned every primitive timestep, explicitly
+ # distinct from deployment's four-action open-loop chunk.
+ caches={}
+ dataset=hydra.utils.instantiate(c.task.dataset)
+ for label,ds in [('train',dataset),('validation',dataset.get_validation_dataset())]:
+  blocks=[]
+  with torch.no_grad():
+   for batch in DataLoader(ds,batch_size=128,shuffle=False,num_workers=0):
+    batch=dict_apply(batch,lambda x:x.cuda())
+    f=m.obs2feature(batch['obs'],training=False,fix_encoder=True)[-1]
+    nf=m.obs2feature(batch['next_obs'],training=False,fix_encoder=True)[-1]
+    a=m.normalizer['action'].normalize(batch['action'])[:,int(c.n_obs_steps)-1]
+    na=m.normalizer['action'].normalize(m.predict_action(batch['next_obs'],deterministic=True)['action'])[:,0]
+    blocks.append([v.detach() for v in [f,a,batch['reward'][:,1].reshape(-1,1),nf,na,batch['not_done'][:,1].reshape(-1,1)]])
+  caches[label]=[torch.cat([b[i] for b in blocks]) for i in range(6)]
+ q=copy.deepcopy(iql._Q).eval();target=copy.deepcopy(q).eval();opt=torch.optim.Adam(q.parameters(),lr=1e-4);rng(seed)
+ fit=[]
+ for step in range(2 if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else 2000):
+  idx=torch.randint(len(caches['train'][0]),(128,),device='cuda');f,a,re,nf,na,nd=[x[idx] for x in caches['train']]
+  with torch.no_grad():t1,t2=target(nf,na);y=re+.99*nd*torch.minimum(t1,t2)
+  q1,q2=q(f,a);loss=((q1-y)**2+(q2-y)**2).mean();opt.zero_grad();loss.backward();opt.step()
+  with torch.no_grad():
+   for x,y0 in zip(target.parameters(),q.parameters()):x.lerp_(y0,.005)
+  if (step+1)%200==0:
+   residual=[]
+   with torch.no_grad():
+    for start in range(0,len(caches['validation'][0]),128):
+     f,a,re,nf,na,nd=[x[start:start+128] for x in caches['validation']];t1,t2=target(nf,na);q1,q2=q(f,a);residual.extend((torch.minimum(q1,q2)-re-.99*nd*torch.minimum(t1,t2)).reshape(-1).cpu().tolist())
+   fit.append(dict(step=step+1,heldout_bellman_rmse=float(np.sqrt(np.mean(np.square(residual))))));print('FQE_FIT',seed,fit[-1],flush=True)
+ torch.save(q.state_dict(),out/f'fqe_seed{seed}.pt');(out/f'fqe_fit_seed{seed}.json').write_text(json.dumps(fit))
+ del caches,dataset;torch.cuda.empty_cache()
+ runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(out),eval_episodes=50);base=runner.env.env;rows=[]
+ def next_obs(o,n):return {k:np.concatenate([o[k][1:],np.asarray(n[k])[None]],axis=0) for k in o}
+ for es in range(750000,750001 if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else 750005):
+  for prefix_len in ([0] if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else [0,10]):
+   rng(es);runner.env.seed(es);o=runner.env.reset();prefix=[]
+   for t in range(prefix_len):
+    with torch.no_grad():ac=m.predict_action(inp(o),deterministic=True)['action'][0].cpu().numpy()
+    prefix.append(ac.copy());o,_,_,_=runner.env.step(ac)
+   ref=digest(o)
+   with torch.no_grad():bc=m.predict_action(inp(o),deterministic=True)['action'][0,0].cpu().numpy()
+   rng(es+prefix_len);candidates={'bc':bc,'small':np.clip(bc+np.random.normal(0,.1,4),-1,1),'large':np.clip(bc+np.random.normal(0,.5,4),-1,1)}
+   for name,act in candidates.items():
+    for repeat in range(1 if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else 3):
+     rng(es);runner.env.seed(es);o=runner.env.reset()
+     for ac in prefix:o,_,_,_=runner.env.step(ac)
+     initial=digest(o)
+     with torch.no_grad():
+      f=m.obs2feature(inp(o),training=False,fix_encoder=True)[-1];a=m.normalizer['action'].normalize(torch.as_tensor(act,device='cuda',dtype=torch.float32)[None]);iq=float(iql.minQ(f,a).item());fq=float(torch.minimum(*q(f,a)).item())
+     n,re,done,info=base.step(np.asarray(act,dtype=np.float32));o=next_obs(o,n)
+     with torch.no_grad():nf=m.obs2feature(inp(o),training=False,fix_encoder=True)[-1];iv=float(iql._value(nf).item())
+     bellman_target=float(re)+.99*iv;ret=float(re);success=bool(info['success']);count=1
+     while count < (2 if os.environ.get('VALUE_AUDIT_SMOKE')=='1' else 200-prefix_len*4) and not done:
+      with torch.no_grad():a=m.predict_action(inp(o),deterministic=True)['action'][0,0].cpu().numpy()
+      n,re,done,info=base.step(a);o=next_obs(o,n);ret+=(.99**count)*float(re);success=success or bool(info['success']);count+=1
+     with torch.no_grad():
+      nf=m.obs2feature(inp(o),training=False,fix_encoder=True)[-1];na=m.normalizer['action'].normalize(m.predict_action(inp(o),deterministic=True)['action'])[:,0];tail=float(torch.minimum(*q(nf,na)).item())
+     # Continuing-task bootstrap is reported separately, not ground truth.
+     rows.append(dict(seed=es,prefix_chunks=prefix_len,candidate=name,repeat=repeat,iql_q=iq,iql_one_step_target=bellman_target,fqe_q=fq,discounted_return=ret,bootstrapped_return=ret+.99**count*tail,success=success,timesteps=count,physical_match=ref['full_state']==initial['full_state'],image_match=all(ref[k]==initial[k] for k in ['image_corner2','image_behindGripper'])))
+    (out/f'aligned_seed{seed}.json').write_text(json.dumps(rows));print('ALIGNED_PROGRESS',seed,es,prefix_len,name,flush=True)
+ runner.env.close();del m,iql,q,target,scope;torch.cuda.empty_cache()

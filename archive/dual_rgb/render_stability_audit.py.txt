@@ -1,0 +1,25 @@
+from pathlib import Path
+import torch,dill,hydra,numpy as np,json
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;out=r/'offline_diagnostics_v2'
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+c=OmegaConf.load(r/'rl_full_seed100/.hydra/config.yaml');p=torch.load(r/'rl_full_seed100/checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.cuda().eval();m.use_aug=False
+runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(out),eval_episodes=50);rows=[]
+for seed in range(740000,740020):
+ runner.env.seed(seed);obs=runner.env.reset();base=runner.env.env
+ images=[base.get_rgb() for _ in range(5)]
+ for i in range(1,5):
+  row=dict(seed=seed,repeat=i)
+  predictions=[];features=[]
+  for j in [0,i]:
+   x={k:torch.as_tensor(v,device='cuda',dtype=torch.float32).unsqueeze(0) for k,v in obs.items() if k in ['image_corner2','image_behindGripper','agent_pos']}
+   for name in ['corner2','behindGripper']:
+    arr=images[j][name].transpose(2,0,1).copy();x['image_'+name][:]=torch.as_tensor(arr,device='cuda',dtype=torch.float32)
+   with torch.no_grad():
+    torch.manual_seed(123);torch.cuda.manual_seed_all(123)
+    predictions.append(m.predict_action(x,deterministic=True)['action'].cpu().numpy());features.append(m.obs2feature(x,training=False,fix_encoder=True)[-1].cpu().numpy())
+  for name in ['corner2','behindGripper']:
+   d=np.abs(images[0][name].astype(float)-images[i][name].astype(float));row[name]=dict(mae=float(d.mean()),max=float(d.max()),changed_fraction=float((d>0).mean()))
+  row['action_max_diff']=float(np.abs(predictions[0]-predictions[1]).max());row['feature_rms_diff']=float(np.sqrt(np.mean((features[0]-features[1])**2)));rows.append(row)
+runner.env.close();(out/'fixed_state_render.json').write_text(json.dumps(rows));print('FIXED_STATE_RENDER_COMPLETE',len(rows),flush=True)

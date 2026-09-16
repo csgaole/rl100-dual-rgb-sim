@@ -1,0 +1,64 @@
+from pathlib import Path
+import os,json,torch,dill,hydra,numpy as np,random,hashlib,time
+from omegaconf import OmegaConf
+from types import SimpleNamespace
+r=Path(__file__).resolve().parent;out=r/'offline_diagnostics_v2';out.mkdir(exist_ok=True)
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True)
+def rng(s):torch.manual_seed(s);torch.cuda.manual_seed_all(s);np.random.seed(s);random.seed(s)
+def inp(obs):return {k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+def digest(obs):return {k:hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k,v in obs.items()}
+for seed in [int(__import__("sys").argv[1])]:
+ run=r/f'rl_full_seed{seed}';c=OmegaConf.load(run/'.hydra/config.yaml');p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+ m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.cuda().eval();m.use_aug=False
+ # Construct exactly the critic architecture used by the trainer.
+ src=(r/'train_offline_fixed.py').read_text();a=src.index('        iql, Q_bc, value = self.model.initialize_critic(');z=src.index('        stage1_artifact_dir',a)
+ scope=dict(self=SimpleNamespace(model=m,cfg=c),cfg=c,device=torch.device('cuda'))
+ exec(src[a:z].replace('        iql, Q_bc, value =','iql, Q_bc, value =',1),scope)
+ iql=scope['iql'];iql.load(str(run/'Q_bc_20.pt'),str(run/'value_20.pt'),str(run/'encoder.pt') if (run/'encoder.pt').exists() else None);iql.eval();iql.obs_encoder.eval()
+
+ import inspect,textwrap,types,importlib,shutil
+ mode=__import__('sys').argv[2];assert mode in ['weighted','uniform']
+ smoke=os.environ.get('REMEDY_SMOKE')=='1';total=2 if smoke else 2000
+ dest=r/(f'value_remedy_{mode}_seed{seed}'+('_smoke' if smoke else ''));dest.mkdir(exist_ok=False);(dest/'.hydra').mkdir();(dest/'checkpoints').mkdir()
+ c.task.env_runner.eval_episodes=50;OmegaConf.save(c,dest/'.hydra/config.yaml');shutil.copy2(run/'checkpoints/latest.ckpt',dest/'checkpoints/latest.ckpt')
+ # Patch only this instance's per-example reduction, preserving its diffusion target.
+ source=textwrap.dedent(inspect.getsource(type(m).compute_loss));assert source.count('loss = loss.mean()')==1
+ source=source.replace('loss = loss.mean()',"weights = batch.get('sample_weight', torch.ones(loss.shape[0], device=loss.device)).detach().reshape((-1,) + (1,) * (loss.ndim - 1)).expand_as(loss)\n    loss = (loss * weights).sum() / weights.sum().clamp_min(1e-8)")
+ ns=dict(vars(importlib.import_module(type(m).__module__)));exec(compile(source,'weighted_compute_loss','exec'),ns);m.compute_loss=types.MethodType(ns['compute_loss'],m)
+ for param in m.obs_encoder.parameters():param.requires_grad_(False)
+ rng(seed);dataset=hydra.utils.instantiate(c.task.dataset);loader=torch.utils.data.DataLoader(dataset,batch_size=128,shuffle=True,num_workers=0);iterator=iter(loader)
+ optimizer=torch.optim.Adam(m.model.parameters(),lr=5e-6)
+ runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(dest),eval_episodes=(1 if smoke else 50))
+ best=-1.;history=[]
+ def save(label):
+  pth=dest/label;pth.mkdir(exist_ok=True);torch.save(m.model.state_dict(),pth/'model.pt');torch.save(m.obs_encoder.state_dict(),pth/'encoder.pt')
+ def evaluate(step):
+  global_unused=None
+  m.eval();result=runner.run(m);score=float(result['test_mean_score']);history.append(dict(step=step,score=score));(dest/'validation.json').write_text(json.dumps(history));print('REMEDY_VALIDATION',mode,seed,step,score,flush=True);return score
+ best=evaluate(0);save('best')
+ for step in range(total):
+  try:batch=next(iterator)
+  except StopIteration:iterator=iter(loader);batch=next(iterator)
+  from rl_100.common.pytorch_util import dict_apply
+  batch=dict_apply(batch,lambda x:x.cuda())
+  m.eval()
+  with torch.no_grad():
+   feat=m.obs2feature(batch['obs'],training=False,fix_encoder=True)[-1]
+   a=m.normalizer['action'].normalize(batch['action'])[:,int(c.n_obs_steps)-1]
+   advantage=iql.get_advantage(feat,a).reshape(-1)
+   # Fixed beta=1 Q-unit, bounded weights, 50% uniform BC anchor.
+   weights=torch.exp(advantage.clamp(-5,2.302585093))
+   weights=.5+.5*weights/weights.mean().clamp_min(1e-8)
+   if mode=='uniform':weights=torch.ones_like(weights)
+   batch['sample_weight']=weights
+  optimizer.param_groups[0]['lr']=5e-6*(1-step/total)
+  loss,info=m.compute_loss(batch,fix_encoder=True);assert torch.isfinite(loss)
+  optimizer.zero_grad();loss.backward();torch.nn.utils.clip_grad_norm_(m.model.parameters(),.5);optimizer.step()
+  if (step+1)%50==0:
+   print('REMEDY_STEP',mode,seed,step+1,float(loss),float(weights.min()),float(weights.max()),flush=True)
+   (dest/'progress.json').write_text(json.dumps(dict(step=step+1,total=2000,loss=float(loss))))
+  if (step+1)%500==0:
+   score=evaluate(step+1)
+   if score>best:best=score;save('best')
+ save('last');runner.env.close();(dest/'training_complete.json').write_text(json.dumps(dict(updates=total,validation=history,mode=mode)))

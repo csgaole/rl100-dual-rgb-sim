@@ -1,0 +1,40 @@
+"""Finite staged job supervisor; stops at evaluated BC, never auto-enables RL."""
+from pathlib import Path
+import subprocess,os,json,time,datetime
+r=Path(__file__).parent
+jobs=json.loads((r/'bc_jobs.json').read_text())['jobs'];children={}
+for j in jobs:j['phase']='3d_bc'
+def save():
+ tmp=r/'pipeline_status.tmp';tmp.write_text(json.dumps(dict(updated_utc=datetime.datetime.utcnow().isoformat(),jobs=jobs,next_stage='offline RL requires BC-result audit and MetaWorld RL-path validation'),indent=2));tmp.replace(r/'pipeline_status.json')
+def alive(pid):
+ try:return Path(f'/proc/{pid}/stat').read_text().split()[2]!='Z'
+ except FileNotFoundError:return False
+def start(j,args,log):
+ p=subprocess.Popen(['bash',str(r/'run.sh')]+args,env=dict(os.environ,GPU_ID=str(j['gpu'])),stdout=open(log,'x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ children[p.pid]=p;j['pid']=p.pid;j['log']=str(log);print('START',j['seed'],j['phase'],p.pid,flush=True)
+while True:
+ for j in jobs:
+  if j['phase'] in ['failed','gate_failed','bc_complete']:continue
+  pid=j['pid'];p=children.get(pid)
+  running=p.poll() is None if p else alive(pid)
+  if running:continue
+  phase=j['phase'];run=Path(j['run_dir']);log=Path(j['log']).read_text(errors='replace')
+  if phase.endswith('_bc'):
+   if 'BC_STAGE_COMPLETE' not in log:j['phase']='failed';j['reason']='BC process ended without completion marker';continue
+   j['phase']=phase.replace('_bc','_eval')
+   start(j,[str(r/'evaluate_bc.py'),str(run),'100'],r/f"logs/{phase}_eval_seed{j['seed']}.log")
+  elif phase.endswith('_eval'):
+   fp=run/'bc_independent_evaluation.json'
+   if not fp.exists():j['phase']='failed';j['reason']='Independent evaluation failed';continue
+   score=json.loads(fp.read_text());j[phase]=score
+   if score['success_rate']<.5:
+    j['phase']='gate_failed';j['reason']='BC below 50/100 independent episodes: inspect data/representation before later stages';continue
+   if phase=='3d_eval':
+    j['phase']='2d_bc';j['run_dir']=str(r/f"runs/rgb_bc_seed{j['seed']}")
+    assert not Path(j['run_dir']).exists()
+    start(j,['train.py','--config-name=peg_2d_bc',f"hydra.run.dir={j['run_dir']}",f"training.seed={j['seed']}"],r/f"logs/rgb_bc_seed{j['seed']}.log")
+   else:j['phase']='bc_complete'
+ save()
+ if all(j['phase'] in ['failed','gate_failed','bc_complete'] for j in jobs):break
+ time.sleep(20)
+print('BC_PIPELINE_FINISHED',flush=True)

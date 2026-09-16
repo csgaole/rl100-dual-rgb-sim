@@ -1,0 +1,37 @@
+from pathlib import Path
+import json
+import os
+import subprocess
+import time
+
+
+root = Path(__file__).parent
+logs = root / "logs"
+logs.mkdir(exist_ok=True)
+python = "<LOCAL_PATH>"
+base_env = os.environ.copy()
+base_env.update({
+    "MUJOCO_GL": "egl",
+    "PYOPENGL_PLATFORM": "egl",
+    "PYTHONPATH": f"{root}:${oc.env:RL100_CORE_ROOT}:<EXPERIMENT_ROOT>/peg_rl_complete_v2",
+    "LD_LIBRARY_PATH": "<HOME>/.mujoco/mujoco210/bin:/usr/lib/nvidia:/usr/local/cuda/lib64:" + base_env.get("LD_LIBRARY_PATH", ""),
+})
+jobs = []
+for shard, gpu in enumerate((3, 5, 6, 7)):
+    env = base_env.copy()
+    env.update({"CUDA_VISIBLE_DEVICES": str(gpu), "MUJOCO_EGL_DEVICE_ID": str(gpu), "EGL_DEVICE_ID": str(gpu)})
+    log_path = logs / f"collect_{shard}.log"
+    log = log_path.open("ab", buffering=0)
+    process = subprocess.Popen(
+        [python, "-u", str(root / "collect.py"), "--shard", str(shard), "--count", "25", "--gain", "20"],
+        cwd=root,
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    jobs.append({"shard": shard, "gpu": gpu, "pid": process.pid, "count": 25, "log": str(log_path)})
+
+manifest = {"started_unix": time.time(), "jobs": jobs}
+(root / "collection_jobs.json").write_text(json.dumps(manifest, indent=2))
+print(json.dumps(manifest, indent=2))

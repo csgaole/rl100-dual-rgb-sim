@@ -1,0 +1,11 @@
+from pathlib import Path
+import time,subprocess,os,json
+r=Path(__file__).resolve().parent;out=r/'offline_diagnostics_v2'
+for _ in range(360):
+ if (out/'status.json').exists():break
+ if not Path('/proc/447709').exists():raise RuntimeError('Diagnostic process ended before completion; inspect its log')
+ time.sleep(10)
+else:raise TimeoutError('Diagnostic wait exceeded one hour')
+p=subprocess.run(['bash',str(r/'run.sh'),str(r/'branch_offline_audit.py')])
+(out/'branch_status.json').write_text(json.dumps(dict(exit_code=p.returncode,time=time.time())))
+raise SystemExit(p.returncode)

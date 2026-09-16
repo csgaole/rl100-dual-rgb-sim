@@ -1,0 +1,26 @@
+from pathlib import Path
+import torch,dill,json,os,subprocess,shutil,time
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;b=r.parent/'peg_rl_complete_v2/RL-100'
+manifest=r/'offline_dropout_ab_jobs.json';assert not manifest.exists()
+j=[]
+for seed,variant,gpu in [(100,'control',5),(100,'fixed',6)]:
+ used=int(subprocess.check_output(['nvidia-smi',f'--id={gpu}','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True));assert used<1000,(gpu,used)
+ src=r/f'rl_full_seed{seed}';run=r/f'offline_dropout_ab_{seed}_{variant}';assert not run.exists();(run/'checkpoints').mkdir(parents=True)
+ c=OmegaConf.load(src/'.hydra/config.yaml');c.online=False;c.offline=True;c.unio4.stage1_resume_dir=str(run);c.unio4.eval_freq=200;c.exp_name=run.name
+ # Keep the original 2000-step decay schedule, stop this pilot at 200 updates.
+ trainer=r/f'train_ab_{variant}.py'
+ txt=(r/('train_offline_fixed.py' if variant=='fixed' else 'train_dual_rl.py')).read_text()
+ txt=txt.replace('range(int(self.cfg.unio4.bppo_steps))','range(min(200, int(self.cfg.unio4.bppo_steps)))')
+ trainer.write_text(txt)
+ p=torch.load(src/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill);p['pickles']['_output_dir']=dill.dumps(str(run));p['cfg']=c
+ torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+ for n in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+  if (src/n).exists():shutil.copy2(src/n,run/n)
+ shutil.copytree(src/'saved_models_last',run/'saved_models_last')
+ OmegaConf.save(c,b/f'rl_100/config/{run.name}.yaml')
+ log=r/'logs'/f'{run.name}.log'
+ cmd=['bash',str(r/'run.sh'),str(trainer),f'--config-name={run.name}',f'hydra.run.dir={run}']
+ proc=subprocess.Popen(cmd,env=dict(os.environ,GPU_ID=str(gpu)),stdout=log.open('x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ j.append(dict(seed=seed,variant=variant,gpu=gpu,pid=proc.pid,run=str(run),log=str(log),updates=200,started_unix=time.time()))
+ manifest.write_text(json.dumps(j,indent=2));print(json.dumps(j[-1]),flush=True)

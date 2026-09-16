@@ -1,0 +1,16 @@
+from pathlib import Path
+import json,os,signal,re,time
+r=Path(__file__).parent;m=r/'relocate_pcd300.json';rec=json.loads(m.read_text());assert rec['phase']=='new_starting_old_retained'
+new=rec['new'];old=rec['old'];s=Path(new['log']).read_text(errors='replace')
+steps=re.findall(r'step (\d+); collecting data time:',s);assert steps and int(steps[-1])>=4096 and 'Traceback' not in s
+assert 'pipeline.py' in Path('/proc/%s/cmdline'%new['pid']).read_bytes().decode()
+oldcmd=Path('/proc/%s/cmdline'%old['pid']).read_bytes().decode();assert str(r/'pipeline.py') in oldcmd and old['run_dir'] in oldcmd
+assert os.getpgid(old['pid'])==old['pid']
+oldsteps=re.findall(r'step (\d+); collecting data time:',Path(old['log']).read_text(errors='replace'))
+rec.update(phase='replacement_verified_superseding_old',old_last_logged_steps=int(oldsteps[-1]),new_verified_steps=int(steps[-1]),confirmed_unix=time.time())
+m.write_text(json.dumps(rec,indent=2))
+os.killpg(old['pid'],signal.SIGTERM)
+jobs=json.loads((r/'full_jobs.json').read_text());assert sum(x['pid']==old['pid'] for x in jobs)==1
+jobs=[new if x['pid']==old['pid'] else x for x in jobs]
+p=r/'full_jobs.json.tmp';p.write_text(json.dumps(jobs,indent=2));p.replace(r/'full_jobs.json')
+rec['phase']='complete';m.write_text(json.dumps(rec,indent=2));print(json.dumps(rec))

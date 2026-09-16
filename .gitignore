@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+vendor/
+.r3m/
+runs/
+data/
+*.ckpt
+*.pt
+*.pth
+*.npz
+*.zarr/
+wandb/
+outputs/
+MUJOCO_LOG.TXT

@@ -1,0 +1,61 @@
+from pathlib import Path
+import copy
+
+from omegaconf import OmegaConf
+
+
+root = Path(__file__).resolve().parent
+repo_config = Path("${oc.env:RL100_CORE_ROOT}/rl_100/config")
+base = OmegaConf.load(repo_config / "peg_v2_full_2d_100.yaml")
+obs_meta = {
+    "image_corner2": {"shape": [3, 84, 84], "type": "rgb"},
+    "image_behindGripper": {"shape": [3, 84, 84], "type": "rgb"},
+    "agent_pos": {"shape": [9], "type": "low_dim"},
+}
+
+for seed in (100, 300):
+    cfg = copy.deepcopy(base)
+    cfg.task.shape_meta.obs = OmegaConf.create(obs_meta)
+    cfg.task.env_runner._target_ = "dual_runner.MetaworldRunner"
+    cfg.task.env_runner.with_pointcloud = False
+    cfg.task.env_runner.eval_episodes = 20
+    for role in ("dataset", "critic_dataset", "scale_dataset", "finetune_dataset"):
+        section = cfg.task[role]
+        section._target_ = "dual_dataset.MetaworldMultiViewDataset"
+        section.zarr_path = str(root / "data/metaworld_peg_insert_dual_rgb_gain20.zarr")
+        section.val_ratio = 0.1
+        section.max_train_episodes = 90
+        section.img_shape_meta = OmegaConf.create(obs_meta)
+        if "scale_strategy" not in section:
+            section.scale_strategy = None
+    cfg.feature_type = "2D"
+    cfg.with_pointcloud = False
+    cfg.only_bc = True
+    cfg.offline = False
+    cfg.online = False
+    cfg.load_bc = False
+    cfg.use_wandb = True
+    cfg.training.seed = seed
+    cfg.training.num_epochs = 250
+    cfg.training.rollout_every = 50
+    cfg.training.checkpoint_every = 50
+    cfg.training.val_every = 10
+    cfg.training.resume = False
+    cfg.encoders.resnet.share_rgb_model = True
+    cfg.encoders.resnet.random_crop = False
+    cfg.encoders.resnet.use_recon = False
+    cfg.encoders.resnet.use_vib = False
+    cfg.use_recon = False
+    cfg.use_vib = False
+    cfg.exp_name = f"peg_dual_rgb_bc_seed{seed}"
+    OmegaConf.save(cfg, repo_config / f"peg_dual_rgb_bc_seed{seed}.yaml")
+
+smoke = copy.deepcopy(OmegaConf.load(repo_config / "peg_dual_rgb_bc_seed100.yaml"))
+smoke.exp_name = "peg_dual_rgb_bc_smoke"
+smoke.training.num_epochs = 1
+smoke.training.max_train_steps = 2
+smoke.training.max_val_steps = 1
+smoke.training.rollout_every = 9999
+smoke.training.checkpoint_every = 1
+OmegaConf.save(smoke, repo_config / "peg_dual_rgb_bc_smoke.yaml")
+print("CONFIGURED", flush=True)

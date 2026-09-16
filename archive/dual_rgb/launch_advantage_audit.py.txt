@@ -1,0 +1,29 @@
+from pathlib import Path
+import os,sys,json,time,subprocess,shutil,torch,dill
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;b=r.parent/'peg_rl_complete_v2/RL-100'
+# Isolated algorithm copy; only the number of optimized actions changes.
+s=(b/'rl_100/unidpg/uni_ppo.py').read_text()
+needle="        chunk_ratio_mode = 'per_step'"
+assert s.count(needle)==1
+s=s.replace(needle,"        opt_steps = int(getattr(self.cfg, 'audit_advantage_steps', opt_steps))\n"+needle)
+compile(s,'uni_ppo_adv_audit.py','exec');(r/'uni_ppo_adv_audit.py').write_text(s)
+t=(r/'train_offline_fixed.py').read_text().replace('from rl_100.unidpg.uni_ppo import BehaviorProximalPolicyOptimization','from uni_ppo_adv_audit import BehaviorProximalPolicyOptimization')
+compile(t,'train_adv_audit.py','exec');(r/'train_adv_audit.py').write_text(t)
+manifest=r/'advantage_audit_jobs.json';assert not manifest.exists()
+jobs=[]
+for steps,gpu in [(1,1),(4,3)]:
+ used=int(subprocess.check_output(['nvidia-smi',f'--id={gpu}','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True));assert used<1000,(gpu,used)
+ names=[]
+ for seed in [100,300]:
+  src=r/f'rl_full_seed{seed}';run=r/f'advantage{steps}_val50_seed{seed}';assert not run.exists();(run/'checkpoints').mkdir(parents=True)
+  c=OmegaConf.load(src/'.hydra/config.yaml');c.online=False;c.offline=True;c.audit_advantage_steps=steps;c.task.env_runner.eval_episodes=50;c.unio4.stage1_resume_dir=str(run);c.exp_name=run.name
+  p=torch.load(src/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill);p['pickles']['_output_dir']=dill.dumps(str(run));p['cfg']=c
+  torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+  for n in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+   if (src/n).exists():shutil.copy2(src/n,run/n)
+  shutil.copytree(src/'saved_models_last',run/'saved_models_last');OmegaConf.save(c,b/f'rl_100/config/{run.name}.yaml');names.append(run.name)
+ log=r/'logs'/f'advantage{steps}_val50_pipeline.log'
+ env=dict(os.environ,GPU_ID=str(gpu),CUBLAS_WORKSPACE_CONFIG=':4096:8')
+ proc=subprocess.Popen(['bash',str(r/'run.sh'),str(r/'advantage_audit_pipeline.py'),*names],env=env,stdout=log.open('x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ jobs.append(dict(gpu=gpu,pid=proc.pid,runs=names,log=str(log),started=time.time()));manifest.write_text(json.dumps(jobs,indent=2));print(jobs[-1],flush=True)

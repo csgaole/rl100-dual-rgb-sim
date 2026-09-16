@@ -1,0 +1,20 @@
+from paired_env import PairedPegEnv
+from metaworld.policies import SawyerPegInsertionSideV2Policy
+import numpy as np,json
+from pathlib import Path
+r=Path(__file__).parent;e=PairedPegEnv(num_points=512,rgb_size=84,device='cuda:0')
+e.seed(810000);a=e.reset();e.seed(810000);b=e.reset()
+result={k:bool(np.array_equal(a[k],b[k])) for k in a}
+d=np.abs(a['image'].astype(float)-b['image'])
+result.update(rgb_mean_abs_difference=float(d.mean()),rgb_changed_fraction=float(np.count_nonzero(d)/d.size))
+assert all(result[k] for k in ['depth','point_cloud','agent_pos','full_state'])
+assert d.mean()<.1 and np.count_nonzero(d)/d.size<.005
+runs=[]
+for repeat in range(2):
+ e.seed(810001);obs=e.reset();rows=[];p=SawyerPegInsertionSideV2Policy()
+ for t in range(200):
+  act=p.get_action(obs['full_state']);obs,rew,done,info=e.step(np.clip(act,-1,1));rows.append(np.r_[obs['full_state'],rew,info['success']])
+ runs.append(np.array(rows))
+result['full_rollout_repeatability']=bool(np.array_equal(*runs));result['rollout_max_difference']=float(np.abs(runs[0]-runs[1]).max())
+(r/'observation_validation.json').write_text(json.dumps(result,indent=2));print(result,flush=True)
+assert result['full_rollout_repeatability']

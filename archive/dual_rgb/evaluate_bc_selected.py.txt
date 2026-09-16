@@ -1,0 +1,24 @@
+from pathlib import Path
+import sys, json, hashlib, time, random
+import torch, dill, hydra, numpy as np
+from omegaconf import OmegaConf
+root=Path(__file__).resolve().parent
+seed=int(sys.argv[1]);run=root/f'runs/dual_rgb_bn_repaired_seed{seed}'
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+cfg=OmegaConf.load(run/'.hydra/config.yaml')
+candidates=list((run/'checkpoints').glob('epoch=*-test_mean_score=*.ckpt'))
+assert len(candidates)==1, candidates
+cp=candidates[0] # Retained by validation top-k; never select using heldout scores.
+p=torch.load(cp,map_location='cpu',pickle_module=dill)
+raw=p['state_dicts']['model'];ema=p['state_dicts']['ema_model']
+keys=[k for k in raw if k.endswith(('running_mean','running_var','num_batches_tracked'))]
+assert len(keys)>0 and all(torch.equal(raw[k],ema[k]) for k in keys)
+model=hydra.utils.instantiate(cfg.policy);model.load_state_dict(ema,strict=True);model.cuda().eval()
+torch.manual_seed(900000);torch.cuda.manual_seed_all(900000);np.random.seed(900000);random.seed(900000)
+runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(run),eval_episodes=100)
+runner.eval_seed_base=900000
+m=runner.run(model)
+result=dict(seed=seed,checkpoint=str(cp),sha256=hashlib.sha256(cp.read_bytes()).hexdigest(),policy='ema_model',epoch=dill.loads(p['pickles']['epoch']),episodes=100,seed_base=900000,success_rate=float(m['test_mean_score']),mean_return=float(m['mean_returns']),bn_buffers_verified=len(keys),selection='validation top-k only',completed_unix=time.time())
+out=root/f'bc_selected_eval_seed{seed}.json';out.write_text(json.dumps(result,indent=2))
+print('BC_SELECTED_EVAL_COMPLETE',json.dumps(result),flush=True)
+runner.env.close()

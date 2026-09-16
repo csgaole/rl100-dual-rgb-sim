@@ -1,0 +1,52 @@
+from pathlib import Path
+r=Path(__file__).resolve().parent
+s=(r/'diagnose_offline_v2.py').read_text();s=s[:s.index(' # Heldout diagnostic:')]
+s=s.replace('for seed in [100,300]:','for seed in [int(__import__("sys").argv[1])]:')
+s+='''
+ import inspect,textwrap,types,importlib,shutil
+ mode=__import__('sys').argv[2];assert mode in ['weighted','uniform']
+ smoke=os.environ.get('REMEDY_SMOKE')=='1';total=2 if smoke else 2000
+ dest=r/(f'value_remedy_{mode}_seed{seed}'+('_smoke' if smoke else ''));dest.mkdir(exist_ok=False);(dest/'.hydra').mkdir();(dest/'checkpoints').mkdir()
+ c.task.env_runner.eval_episodes=50;OmegaConf.save(c,dest/'.hydra/config.yaml');shutil.copy2(run/'checkpoints/latest.ckpt',dest/'checkpoints/latest.ckpt')
+ # Patch only this instance's per-example reduction, preserving its diffusion target.
+ source=textwrap.dedent(inspect.getsource(type(m).compute_loss));assert source.count('loss = loss.mean()')==1
+ source=source.replace('loss = loss.mean()',"weights = batch.get('sample_weight', torch.ones(loss.shape[0], device=loss.device)).detach().reshape((-1,) + (1,) * (loss.ndim - 1)).expand_as(loss)\\n    loss = (loss * weights).sum() / weights.sum().clamp_min(1e-8)")
+ ns=dict(vars(importlib.import_module(type(m).__module__)));exec(compile(source,'weighted_compute_loss','exec'),ns);m.compute_loss=types.MethodType(ns['compute_loss'],m)
+ for param in m.obs_encoder.parameters():param.requires_grad_(False)
+ rng(seed);dataset=hydra.utils.instantiate(c.task.dataset);loader=torch.utils.data.DataLoader(dataset,batch_size=128,shuffle=True,num_workers=0);iterator=iter(loader)
+ optimizer=torch.optim.Adam(m.model.parameters(),lr=5e-6)
+ runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(dest),eval_episodes=(1 if smoke else 50))
+ best=-1.;history=[]
+ def save(label):
+  pth=dest/label;pth.mkdir(exist_ok=True);torch.save(m.model.state_dict(),pth/'model.pt');torch.save(m.obs_encoder.state_dict(),pth/'encoder.pt')
+ def evaluate(step):
+  global_unused=None
+  m.eval();result=runner.run(m);score=float(result['test_mean_score']);history.append(dict(step=step,score=score));(dest/'validation.json').write_text(json.dumps(history));print('REMEDY_VALIDATION',mode,seed,step,score,flush=True);return score
+ best=evaluate(0);save('best')
+ for step in range(total):
+  try:batch=next(iterator)
+  except StopIteration:iterator=iter(loader);batch=next(iterator)
+  from rl_100.common.pytorch_util import dict_apply
+  batch=dict_apply(batch,lambda x:x.cuda())
+  m.eval()
+  with torch.no_grad():
+   feat=m.obs2feature(batch['obs'],training=False,fix_encoder=True)[-1]
+   a=m.normalizer['action'].normalize(batch['action'])[:,int(c.n_obs_steps)-1]
+   advantage=iql.get_advantage(feat,a).reshape(-1)
+   # Fixed beta=1 Q-unit, bounded weights, 50% uniform BC anchor.
+   weights=torch.exp(advantage.clamp(-5,2.302585093))
+   weights=.5+.5*weights/weights.mean().clamp_min(1e-8)
+   if mode=='uniform':weights=torch.ones_like(weights)
+   batch['sample_weight']=weights
+  optimizer.param_groups[0]['lr']=5e-6*(1-step/total)
+  loss,info=m.compute_loss(batch,fix_encoder=True);assert torch.isfinite(loss)
+  optimizer.zero_grad();loss.backward();torch.nn.utils.clip_grad_norm_(m.model.parameters(),.5);optimizer.step()
+  if (step+1)%50==0:
+   print('REMEDY_STEP',mode,seed,step+1,float(loss),float(weights.min()),float(weights.max()),flush=True)
+   (dest/'progress.json').write_text(json.dumps(dict(step=step+1,total=2000,loss=float(loss))))
+  if (step+1)%500==0:
+   score=evaluate(step+1)
+   if score>best:best=score;save('best')
+ save('last');runner.env.close();(dest/'training_complete.json').write_text(json.dumps(dict(updates=total,validation=history,mode=mode)))
+'''
+compile(s,'train_value_remedy.py','exec');(r/'train_value_remedy.py').write_text(s)

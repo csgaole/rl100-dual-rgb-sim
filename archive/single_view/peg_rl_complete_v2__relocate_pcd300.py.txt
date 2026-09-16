@@ -1,0 +1,24 @@
+from pathlib import Path
+import os,json,subprocess,torch,dill,shutil,time
+from omegaconf import OmegaConf
+r=Path(__file__).parent
+manifest=r/'relocate_pcd300.json'
+assert not manifest.exists(), 'already launched'
+j=next(x for x in json.loads((r/'full_jobs.json').read_text()) if x['modality']=='3d' and x['seed']==300)
+assert j['gpu']==1
+used=int(subprocess.check_output(['nvidia-smi','--id=7','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True));assert used<5000,used
+source=Path(j['completed_offline_source']);run=r/'full/3d_300_gpu7'
+(run/'checkpoints').mkdir(parents=True,exist_ok=False)
+cfg=OmegaConf.load(Path(j['run_dir'])/'.hydra/config.yaml');OmegaConf.set_struct(cfg,False)
+name='peg_v2_full_3d_300_gpu7';cfg.exp_name=name
+assert cfg.ppo.max_train_steps==1000000 and not cfg.offline and cfg.online
+p=torch.load(source/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill);p['cfg']=cfg;p['pickles']['_output_dir']=dill.dumps(str(run));torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+for file in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+ if (source/file).exists():shutil.copy2(source/file,run/file)
+for folder in ['saved_models_last','best','last','best_ema']:shutil.copytree(source/folder,run/folder)
+OmegaConf.save(cfg,r/f'RL-100/rl_100/config/{name}.yaml')
+log=r/'logs'/f'{name}.log'
+proc=subprocess.Popen(['bash',str(r/'run.sh'),str(r/'pipeline.py'),name,str(run)],env=dict(os.environ,GPU_ID='7'),stdout=open(log,'x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+new=dict(j,gpu=7,pid=proc.pid,run_dir=str(run),log=str(log),supersedes_run=j['run_dir'],restart_reason='persistent GPU1 competition; same completed offline source, fresh full online budget')
+record=dict(old=j,new=new,phase='new_starting_old_retained',started_unix=time.time())
+manifest.write_text(json.dumps(record,indent=2));print(json.dumps(record))

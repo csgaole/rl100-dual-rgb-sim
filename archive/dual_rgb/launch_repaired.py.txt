@@ -1,0 +1,33 @@
+from pathlib import Path
+import json, os, signal, subprocess, time
+from omegaconf import OmegaConf
+root=Path(__file__).resolve().parent
+base=root.parent/'peg_rl_complete_v2/RL-100'
+manifest=root/'repaired_bc_jobs.json'
+assert not manifest.exists(), 'Already launched: inspect existing jobs instead'
+evaluation=json.loads((root/'repair_evaluation.json').read_text())
+assert all(any(x['seed']==seed and x['split']=='validation' and x['success']>0 for x in evaluation) for seed in [100,300])
+source=root/'train_repaired.py'
+compile(source.read_text(),str(source),'exec')
+jobs=[]
+for seed,gpu,pid in [(100,5,1197707),(300,6,1197725)]:
+ run=root/f'runs/dual_rgb_bn_repaired_seed{seed}'
+ assert not run.exists(), str(run)
+ cmd=Path(f'/proc/{pid}/cmdline').read_bytes().replace(b'\0',b' ').decode()
+ assert f'peg_dual_rgb_bc_seed{seed}' in cmd and os.getpgid(pid)==pid
+ cfgpath=base/f'rl_100/config/dual_rgb_bn_repaired_{seed}.yaml'
+ cfg=OmegaConf.load(cfgpath);cfg.ema._target_='ema_repaired.EMAModel'
+ OmegaConf.save(cfg,cfgpath)
+ os.killpg(pid,signal.SIGTERM)
+ os.killpg(pid,signal.SIGCONT)
+ for _ in range(100):
+  if not Path(f'/proc/{pid}').exists():break
+  time.sleep(.1)
+ else:raise RuntimeError(f'Old job {pid} has not exited')
+ logpath=root/f'logs/dual_rgb_bn_repaired_seed{seed}.log'
+ with logpath.open('ab',buffering=0) as log:
+  env=os.environ.copy();env['GPU_ID']=str(gpu)
+  p=subprocess.Popen(['bash',str(root/'run.sh'),str(source),f'--config-name=dual_rgb_bn_repaired_{seed}',f'hydra.run.dir={run}'],cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+ jobs.append(dict(seed=seed,gpu=gpu,pid=p.pid,run_dir=str(run),log=str(logpath),resume_epoch=151,target_epochs=250))
+ manifest.write_text(json.dumps(dict(started_unix=time.time(),jobs=jobs),indent=2))
+print(manifest.read_text())

@@ -1,0 +1,26 @@
+from pathlib import Path
+import json, torch, dill, hydra, numpy as np, random
+from omegaconf import OmegaConf
+root=Path(__file__).resolve().parent
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+run=root/'runs/dual_rgb_bc_seed100'
+cfg=OmegaConf.load(run/'.hydra/config.yaml')
+p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+states=p['state_dicts']; raw=states['model']; ema=states['ema_model']
+keys=[k for k in raw if 'running_mean' in k or 'running_var' in k or 'num_batches_tracked' in k]
+print('BN_BUFFERS',json.dumps({k:float((raw[k].float()-ema[k].float()).abs().max()) for k in keys}),flush=True)
+results=[]
+for variant in ['ema_original','ema_copy_bn','raw']:
+ model=hydra.utils.instantiate(cfg.policy)
+ st=dict(raw if variant=='raw' else ema)
+ if variant=='ema_copy_bn':
+  for k in keys:st[k]=raw[k]
+ model.load_state_dict(st);model.cuda().eval()
+ torch.manual_seed(700000);torch.cuda.manual_seed_all(700000);np.random.seed(700000);random.seed(700000)
+ runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(root/'diagnostic'),eval_episodes=20)
+ runner.eval_seed_base=700000
+ m=runner.run(model)
+ results.append(dict(variant=variant,success=float(m['test_mean_score']),return_mean=float(m['mean_returns'])))
+ print('DIAG_RESULT',json.dumps(results[-1]),flush=True)
+ (root/'bn_diagnostic.json').write_text(json.dumps(results,indent=2))
+ runner.env.close();del model,runner;torch.cuda.empty_cache()

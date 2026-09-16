@@ -1,0 +1,19 @@
+from pathlib import Path
+import json,os,time,subprocess
+r=Path(__file__).parent;jobs=json.loads((r/'full_jobs.json').read_text());out=r/'early_eval_status.json'
+assert not out.exists(),'Already started'
+tasks=[dict(run=j['run_dir'],stage=stage,training_log=j['log'],phase='waiting') for stage in ['bc','offline_selected','offline_last'] for j in jobs]
+while any(t['phase'] in ['waiting','running'] for t in tasks):
+ ready=[]
+ for t in tasks:
+  if t['phase']!='waiting':continue
+  if (Path(t['run'])/'last/model.pt').exists():ready.append(t)
+ if not ready:time.sleep(15);continue
+ used=int(subprocess.check_output(['nvidia-smi','--id=7','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True))
+ if used>=1000:time.sleep(15);continue
+ t=ready[0];t['phase']='running';t['started_unix']=time.time()
+ log=r/'logs'/('early_'+Path(t['run']).name+'_'+t['stage']+'.log')
+ proc=subprocess.Popen(['bash',str(r/'run.sh'),str(r/'evaluate_stages.py'),t['run']],env=dict(os.environ,GPU_ID='7',EVAL_STAGES=t['stage'],EVAL_EPISODES='100'),stdin=subprocess.DEVNULL,stdout=open(log,'x'),stderr=subprocess.STDOUT)
+ t['pid']=proc.pid;t['log']=str(log);out.write_text(json.dumps(tasks,indent=2))
+ code=proc.wait();t['phase']='complete' if code==0 else 'failed';t['exit_code']=code;t['finished_unix']=time.time();out.write_text(json.dumps(tasks,indent=2))
+print('EARLY_EVALUATIONS_FINISHED',flush=True)

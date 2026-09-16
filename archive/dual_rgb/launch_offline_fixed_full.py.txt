@@ -1,0 +1,17 @@
+from pathlib import Path
+import torch,dill,json,os,subprocess,shutil,time
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;b=r.parent/'peg_rl_complete_v2/RL-100';manifest=r/'offline_fixed_full_jobs.json';assert not manifest.exists();jobs=[]
+for seed,gpu in [(100,5),(300,6)]:
+ used=int(subprocess.check_output(['nvidia-smi',f'--id={gpu}','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True));assert used<1000,(gpu,used)
+ src=r/f'rl_full_seed{seed}';run=r/f'offline_fixed_full_seed{seed}';assert not run.exists();(run/'checkpoints').mkdir(parents=True)
+ c=OmegaConf.load(src/'.hydra/config.yaml');c.online=False;c.offline=True;c.unio4.stage1_resume_dir=str(run);c.exp_name=run.name
+ p=torch.load(src/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill);p['pickles']['_output_dir']=dill.dumps(str(run));p['cfg']=c
+ torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+ for n in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+  if (src/n).exists():shutil.copy2(src/n,run/n)
+ shutil.copytree(src/'saved_models_last',run/'saved_models_last')
+ OmegaConf.save(c,b/f'rl_100/config/{run.name}.yaml')
+ log=r/'logs'/f'{run.name}.log';env=dict(os.environ,GPU_ID=str(gpu),CUBLAS_WORKSPACE_CONFIG=':4096:8')
+ proc=subprocess.Popen(['bash',str(r/'run.sh'),str(r/'offline_fix_pipeline.py'),str(seed)],env=env,stdout=log.open('x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ jobs.append(dict(seed=seed,gpu=gpu,pid=proc.pid,run=str(run),log=str(log),started_unix=time.time(),updates=2000));manifest.write_text(json.dumps(jobs,indent=2));print(json.dumps(jobs[-1]),flush=True)

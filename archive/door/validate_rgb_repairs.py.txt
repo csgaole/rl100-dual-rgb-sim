@@ -1,0 +1,59 @@
+from pathlib import Path
+import torch,hydra,numpy as np,json
+from omegaconf import OmegaConf
+from rl_100.common.pytorch_util import dict_apply
+from rl_100.unidpg.uni_ppo import compute_gae_per_env
+from rl_100.unidpg.repair_utils import true_terminal
+
+def main():
+ root=Path('<EXPERIMENT_ROOT>/repairs_v1')
+ OmegaConf.register_new_resolver('eval',eval,replace=True)
+ cfg=OmegaConf.load(root/'RL-100/rl_100/config/repair_probability_timeout.yaml')
+ assert not true_terminal(True,{'TimeLimit.truncated':np.array([True])})
+ assert true_terminal(True,{}) and not true_terminal(False,{})
+ r=torch.tensor([[[1.],[2.]],[[1000.],[4.]]]); done=torch.tensor([[[1.],[0.]],[[1.],[1.]]]);dw=torch.tensor([[[0.],[0.]],[[1.],[1.]]])
+ v=torch.ones_like(r)*2;vn=torch.ones_like(r)*5
+ adv,_=compute_gae_per_env(r,done,dw,v,vn,.9,.95)
+ assert torch.allclose(adv.flatten(),torch.tensor([3.5,6.21,998.,2.])),adv
+ run=root/'runs/probability_timeout'
+ p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu')
+ model=hydra.utils.instantiate(cfg.policy);model.load_state_dict(p['state_dicts']['model'])
+ model.model.load_state_dict(torch.load(run/'best/model.pt',map_location='cpu'))
+ model.obs_encoder.load_state_dict(torch.load(run/'best/encoder.pt',map_location='cpu'))
+ model.cuda().eval();model.obs_encoder.force_stochastic=False
+ ds=hydra.utils.instantiate(cfg.task.dataset)
+ obs=dict_apply(next(iter(torch.utils.data.DataLoader(ds,batch_size=16,num_workers=0)))['obs'],lambda x:x.cuda())
+ with torch.no_grad():
+  _,x,old=model.all_step_action_logprob(obs,fix_encoder=False)
+  features=model.obs2latent(obs,training=False)
+  errors=[]
+  for i,t in enumerate(model.noise_scheduler.timesteps):
+   ts=torch.as_tensor(t,device=model.device).reshape(1).expand(16)
+   out=model.model(sample=x[i],timestep=model.get_unet_timesteps(ts),local_cond=None,global_cond=features)
+   now,_=model.noise_scheduler.step_forward_logprob_with_entropy(out,ts,x[i],next_sample=x[i+1],eta=1.)
+   errors.append(float((now.sum(-1)-old[i].sum(-1)).abs().max()))
+ assert max(errors)<1e-3,errors
+ print('CHECK probability PASS',errors,flush=True)
+ runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(root/'validation'))
+ vec=runner.make_subproc_vec_env(2,record_video_first=False,reward_agg_method='discounted_sum',gamma=cfg.gamma)
+ vec.seed(900); first=vec.reset(); vec.seed(900); second=vec.reset()
+ for key in first:
+  delta=np.abs(first[key].astype(float)-second[key].astype(float))
+  if key == 'image':
+   assert delta.max() <= 1 and delta.mean() < 0.01, ('render tolerance',delta.max(),delta.mean())
+  else:
+   assert np.array_equal(first[key],second[key]), ('seed repeatability',key)
+ observed=[]
+ for step in range(110):
+  obs,r,dones,infos=vec.step(np.zeros((2,1,28),dtype=np.float32))
+  for i,done in enumerate(dones):
+   if done:
+    assert 'terminal_observation' in infos[i]
+    assert not true_terminal(done,infos[i]),infos[i]
+    observed.append(dict(env=i,step=step+1,truncated=True,terminal_observation=True))
+  if len(observed)==2:break
+ assert len(observed)==2 and all(d['step']==100 for d in observed),observed
+ vec.close();runner.env.close()
+ result=dict(probability_max_abs_logratio=max(errors),gae_boundary_test='PASS',seed_repeatability='PASS',rgb_reset_tolerance='max 1 uint8 level; mean below 0.01',vector_timeouts=observed)
+ (root/'validation.json').write_text(json.dumps(result,indent=2));print('VALIDATION PASS',result,flush=True)
+if __name__=='__main__':main()

@@ -1,0 +1,52 @@
+from pathlib import Path
+import json
+import numpy as np
+from PIL import Image, ImageDraw
+
+from dual_env import DualViewPegEnv
+from metaworld.policies import SawyerPegInsertionSideV2Policy
+
+
+root = Path(__file__).parent
+env = DualViewPegEnv(device="cuda:0", num_points=512, rgb_size=84, use_point_crop=True)
+expert = SawyerPegInsertionSideV2Policy()
+env.seed(12345)
+obs = env.reset()
+frames = []
+stats = []
+for t in range(200):
+    if t in (0, 25, 50, 75, 100, 125, 150, 175):
+        c = obs["image_corner2"].transpose(1, 2, 0).astype(np.uint8)
+        w = obs["image_gripperPOV"].transpose(1, 2, 0).astype(np.uint8)
+        b = env._render_rgb("behindGripper").astype(np.uint8)
+        frames.append((t, c, w, b))
+        stats.append({
+            "t": t,
+            "corner_mean": float(c.mean()),
+            "corner_std": float(c.std()),
+            "wrist_mean": float(w.mean()),
+            "wrist_std": float(w.std()),
+            "behind_mean": float(b.mean()),
+            "behind_std": float(b.std()),
+            "mean_abs_view_difference": float(np.abs(c.astype(float) - w.astype(float)).mean()),
+        })
+    action = expert.get_action(obs["full_state"])
+    action[:3] *= 0.8
+    obs, _, done, info = env.step(np.clip(action, -1, 1).astype(np.float32))
+    if done:
+        break
+
+tile = Image.new("RGB", (84 * 3, 112 * len(frames)), "white")
+draw = ImageDraw.Draw(tile)
+for i, (t, corner, wrist, behind) in enumerate(frames):
+    y = i * 112
+    tile.paste(Image.fromarray(corner), (0, y + 20))
+    tile.paste(Image.fromarray(wrist), (84, y + 20))
+    tile.paste(Image.fromarray(behind), (168, y + 20))
+    draw.text((2, y + 2), f"t={t} external", fill="black")
+    draw.text((88, y + 2), "wrist", fill="black")
+    draw.text((172, y + 2), "behind", fill="black")
+tile.save(root / "dual_view_probe.png")
+(root / "dual_view_probe.json").write_text(json.dumps({"steps": t + 1, "success": bool(info["success"]), "frames": stats}, indent=2))
+print(json.dumps({"steps": t + 1, "success": bool(info["success"]), "probe": str(root / "dual_view_probe.png")}))
+env.close()

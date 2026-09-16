@@ -1,0 +1,39 @@
+from pathlib import Path
+import json, numpy as np, zarr, hashlib, shutil, sys
+from omegaconf import OmegaConf
+import hydra
+r=Path(__file__).parent;repo=r/'RL-100'
+gain=int(sys.argv[1]) if len(sys.argv)>1 else 25
+prefix=f'seeded_gain{gain}_shard'
+paths=sorted((r/'data').glob(prefix+'[012]/episode_*.npz'))
+assert len(paths)==100,len(paths)
+statuses=[json.loads((r/'data'/f'{prefix}{i}'/'status.json').read_text()) for i in range(3)]
+assert sum(s['accepted'] for s in statuses)==100
+attempted=sum(s['attempted'] for s in statuses)
+# >95% is a target, not a claim inferred from success filtering. Keep the
+# measured rate and verify every accepted trajectory; RL remains gated on BC.
+assert all(x['success'] for s in statuses for x in s['attempts'] if x['seed'] in [int(np.load(p)['seed']) for p in paths])
+out=r/f'data/metaworld_peg_insert_paired_seeded_gain{gain}.zarr'
+assert not out.exists(),out
+root=zarr.open_group(str(out),mode='w');d=root.create_group('data');m=root.create_group('meta')
+ends=[];seeds=[];total=0
+for path in paths:
+ x=np.load(path);n=len(x['action']);seeds.append(int(x['seed']))
+ assert x['success'].any() and x['point_cloud'].shape==(n,512,3)
+ assert x['state'].shape==(n,9) and x['action'].shape==(n,4)
+ for k in ['img','point_cloud','state','depth','full_state']:
+  assert np.array_equal(x['next_'+k][:-1],x[k][1:]),(path,k)
+ assert not x['done'].any() and x['timeout'][-1,0] and not x['timeout'][:-1].any()
+ for k in x.files:
+  if k=='seed' or k.startswith('initial_'):continue
+  value=x[k];assert np.isfinite(value).all(),(path,k)
+  if k not in d:d.create_dataset(k,shape=(0,)+value.shape[1:],chunks=(100,)+value.shape[1:],dtype=value.dtype)
+  d[k].append(value)
+ total+=n;ends.append(total)
+assert len(set(seeds))==100
+m.create_dataset('episode_ends',data=np.array(ends,dtype=np.int64));m.create_dataset('episode_seeds',data=seeds)
+val=np.random.default_rng(42).choice(100,10,replace=False);train=np.setdiff1d(np.arange(100),val)
+m.create_dataset('train_episode_indices',data=train);m.create_dataset('val_episode_indices',data=val)
+root.attrs.update(dict(gamma=.99,return_definition='finite recorded episode discounted dense return, not bootstrapped at truncation',reward_definition='native MetaWorld v2 dense',rgb_orientation='upright',camera='corner2',expert_attempts=attempted,expert_successes=100,source='paired collection, same RGBD render'))
+(r/'dataset_validation.json').write_text(json.dumps(dict(episodes=100,transitions=total,attempted=attempted,expert_success_rate=100/attempted,train=train.tolist(),validation=val.tolist(),temporal_pairing=True,shapes={k:list(d[k].shape) for k in d},sha256_shared={k:hashlib.sha256(d[k][:].tobytes()).hexdigest() for k in ['action','state','reward','success','done','timeout','return']}),indent=2))
+print('DATASET_VALIDATED',total,attempted,flush=True)

@@ -1,0 +1,30 @@
+from pathlib import Path
+import os,json,torch,dill,subprocess,hashlib,datetime
+from omegaconf import OmegaConf
+r=Path(__file__).parent
+assert not (r/'replicate_seed100_jobs.json').exists(),'Already launched'
+base=json.loads((r/'jobs.json').read_text())
+for gpu in [5,6]:
+ used=int(subprocess.check_output(['nvidia-smi',f'--id={gpu}','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True))
+ assert used<1000,(gpu,used)
+new=[]
+for mode,prefix,gpu in [('3d','pcd',6),('2d','rgb',5)]:
+ source=next(j for j in base if j['modality']==mode and j['seed']==300)
+ cfg=OmegaConf.load(r/f'RL-100/rl_100/config/peg_{mode}_foundation.yaml')
+ cfg.training.seed=100;cfg.exp_name=f'peg_{mode}_foundation_seed100_bcseed300'
+ run=r/f'runs/{prefix}_foundation_seed100_bcseed300'
+ assert not run.exists();(run/'checkpoints').mkdir(parents=True)
+ cp=Path(source['bc_checkpoint']);p=torch.load(cp,map_location='cpu',pickle_module=dill)
+ p['state_dicts']['model']=p['state_dicts']['ema_model']
+ p['pickles']['_output_dir']=dill.dumps(str(run));p['cfg']=cfg
+ torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+ config_name=f'peg_{mode}_foundation_seed100'
+ OmegaConf.save(cfg,r/f'RL-100/rl_100/config/{config_name}.yaml')
+ log=r/f'logs/{mode}_foundation_seed100.log'
+ proc=subprocess.Popen(['bash',str(r/'run.sh'),'train.py',f'--config-name={config_name}',f'hydra.run.dir={run}'],env=dict(os.environ,GPU_ID=str(gpu)),stdout=open(log,'x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ job=dict(modality=mode,gpu=gpu,seed=100,foundation_seed=100,bc_seed=300,bc_epoch=250,bc_checkpoint=str(cp),bc_sha256=hashlib.sha256(cp.read_bytes()).hexdigest(),run_dir=str(run),pid=proc.pid,log=str(log),stage=source['stage'],critic_epochs=100,dynamics_max_epochs=100,started_utc=datetime.datetime.utcnow().isoformat())
+ assert job['bc_sha256']==source['bc_sha256']
+ new.append(job)
+ (r/'replicate_seed100_jobs.json').write_text(json.dumps(new,indent=2))
+ (r/'jobs.json').write_text(json.dumps(base+new,indent=2))
+ print(json.dumps(job),flush=True)

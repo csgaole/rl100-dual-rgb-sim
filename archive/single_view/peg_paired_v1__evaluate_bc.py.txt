@@ -1,0 +1,18 @@
+from pathlib import Path
+import sys,json,re,torch,hydra,numpy as np
+from omegaconf import OmegaConf
+r=Path(__file__).parent;run=Path(sys.argv[1]);episodes=int(sys.argv[2]) if len(sys.argv)>2 else 100
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+cfg=OmegaConf.load(run/'.hydra/config.yaml')
+checkpoints=list((run/'checkpoints').glob('epoch=*-test_mean_score=*.ckpt'))
+assert checkpoints,'No validation-selected checkpoint'
+cp=max(checkpoints,key=lambda p:float(re.search(r'test_mean_score=([0-9.]+)\.ckpt',p.name)[1]))
+payload=torch.load(cp,map_location='cpu');model=hydra.utils.instantiate(cfg.policy)
+model.load_state_dict(payload['state_dicts']['ema_model' if cfg.training.use_ema else 'model']);model.cuda().eval()
+if hasattr(model.obs_encoder,'force_stochastic'):model.obs_encoder.force_stochastic=False
+runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(run),eval_episodes=episodes)
+runner.eval_seed_base=800000
+torch.manual_seed(800000);np.random.seed(800000)
+log=runner.run(model)
+result=dict(checkpoint=str(cp),episodes=episodes,eval_seed_base=800000,success_rate=float(log['test_mean_score']),mean_return=float(log['mean_returns']))
+(run/'bc_independent_evaluation.json').write_text(json.dumps(result,indent=2));print('BC_EVALUATION',json.dumps(result),flush=True)

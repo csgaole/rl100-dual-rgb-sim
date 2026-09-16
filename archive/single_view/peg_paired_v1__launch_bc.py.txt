@@ -1,0 +1,20 @@
+from pathlib import Path
+import subprocess,os,json,datetime
+from omegaconf import OmegaConf
+r=Path(__file__).parent
+assert not (r/'bc_jobs.json').exists(),'Jobs already launched'
+validation=json.loads((r/'dataset_validation.json').read_text());assert validation['episodes']==100 and validation['temporal_pairing']
+for mode in ['3d','2d']:
+ p=r/f'RL-100/rl_100/config/peg_{mode}_bc.yaml';c=OmegaConf.load(p)
+ for role in ['dataset','critic_dataset','scale_dataset','finetune_dataset']:
+  c.task[role].zarr_path=str(r/'data/metaworld_peg_insert_paired_seeded_gain20.zarr')
+ OmegaConf.save(c,p)
+jobs=[]
+for gpu,seed in [(1,100),(4,200),(6,300)]:
+ name=f'pcd_bc_seed{seed}';out=r/f'runs/{name}'
+ assert not out.exists()
+ args=['bash',str(r/'run.sh'),'train.py','--config-name=peg_3d_bc',f'hydra.run.dir={out}',f'training.seed={seed}']
+ p=subprocess.Popen(args,env=dict(os.environ,GPU_ID=str(gpu)),stdout=open(r/f'logs/{name}.log','x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ jobs.append(dict(name=name,gpu=gpu,seed=seed,modality='3d',stage='BC',pid=p.pid,log=str(r/f'logs/{name}.log'),run_dir=str(out),epochs=600))
+(r/'bc_jobs.json').write_text(json.dumps(dict(started_utc=datetime.datetime.utcnow().isoformat(),jobs=jobs),indent=2))
+print(json.dumps(jobs),flush=True)

@@ -1,0 +1,37 @@
+from pathlib import Path
+r=Path(__file__).resolve().parent
+s=(r/'diagnose_offline_v2.py').read_text();s=s[:s.index(' # Heldout diagnostic:')]
+s+='''
+ rows=[]
+ runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(out),eval_episodes=50)
+ for ep in range(10):
+  for prefix_len in [0,10,20]:
+   es=730000+ep;rng(es);runner.env.seed(es);obs=runner.env.reset();m.reset();prefix=[]
+   for step in range(prefix_len):
+    with torch.no_grad():a=m.predict_action(inp(obs),deterministic=True)['action'][0].cpu().numpy()
+    prefix.append(a.copy());obs,_,done,_=runner.env.step(a)
+   reference=digest(obs)
+   with torch.no_grad():
+    feat=m.obs2feature(inp(obs),training=False,fix_encoder=True)[-1]
+    bc=m.predict_action(inp(obs),deterministic=True)['action'][0].cpu().numpy()
+   rng(es+prefix_len+10)
+   candidates={'bc':bc[0].copy(),'small':np.clip(bc[0]+np.random.normal(0,.1,4),-1,1),'large':np.clip(bc[0]+np.random.normal(0,.5,4),-1,1),'random':np.random.uniform(-1,1,4)}
+   for label,first in candidates.items():
+    with torch.no_grad():
+     normalized=m.normalizer['action'].normalize(torch.as_tensor(first,device='cuda',dtype=torch.float32).reshape(1,4))
+     q=float(iql.minQ(feat,normalized).item())
+    rng(es);runner.env.seed(es);o=runner.env.reset();m.reset()
+    for a in prefix:o,_,_,_=runner.env.step(a)
+    initial=digest(o);ret=0.;success=False
+    for step in range(prefix_len,50):
+     if step==prefix_len:
+      a=bc.copy();a[0]=first
+     else:
+      with torch.no_grad():a=m.predict_action(inp(o),deterministic=True)['action'][0].cpu().numpy()
+     o,reward,done,info=runner.env.step(a);ret+=float(reward);success=success or bool(np.max(info['success']))
+     if np.all(done):break
+    rows.append(dict(seed=es,prefix_chunks=prefix_len,candidate=label,q=q,return_=ret,success=success,physical_match=initial['full_state']==reference['full_state'],image_match=all(initial[k]==reference[k] for k in ['image_corner2','image_behindGripper'])))
+   (out/f'branch_seed{seed}.json').write_text(json.dumps(rows));print('BRANCH_PROGRESS',seed,ep,prefix_len,flush=True)
+ runner.env.close();del m,iql,scope;torch.cuda.empty_cache()
+'''
+compile(s,'branch_offline_audit.py','exec');(r/'branch_offline_audit.py').write_text(s)

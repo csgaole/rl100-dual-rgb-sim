@@ -1,0 +1,36 @@
+from pathlib import Path
+import torch,dill,hydra,numpy as np,random,json,hashlib
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+c=OmegaConf.load(r/'rl_full_seed100/.hydra/config.yaml');p=torch.load(r/'rl_full_seed100/checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.cuda().eval()
+torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True)
+def digest(a):return hashlib.sha256(np.asarray(a).tobytes()).hexdigest()
+results=[]
+for repeat in range(2):
+ torch.manual_seed(900000);torch.cuda.manual_seed_all(900000);np.random.seed(900000);random.seed(900000)
+ if repeat==0:runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(r/'repeat_probe'),eval_episodes=4)
+ runner.env.seed(900000);traces=[]
+ for ep in range(4):
+  obs=runner.env.reset();m.reset();trace=[]
+  for t in range(50):
+   hashes={k:digest(v) for k,v in obs.items()}
+   sim=runner.env.env.env.sim
+   for k in ['qpos','qvel','ctrl','qacc_warmstart','mocap_pos','mocap_quat','body_xpos','site_xpos']:
+    hashes['sim_'+k]=digest(getattr(sim.data,k))
+   for k in ['body_pos','body_quat','cam_pos','cam_quat','light_pos']:
+    hashes['model_'+k]=digest(getattr(sim.model,k))
+   inp={k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+   with torch.no_grad():act=m.predict_action(inp,deterministic=True)['action'][0].cpu().numpy()
+   obs,reward,done,info=runner.env.step(act)
+   trace.append(dict(obs=hashes,action=digest(act),reward=float(reward),done=bool(np.all(done))))
+   if np.all(done):break
+  traces.append(trace)
+ results.append(traces)
+checks=[]
+for ep in range(4):
+ diffs=[t for t,(a,b) in enumerate(zip(results[0][ep],results[1][ep])) if a!=b]
+ first=diffs[0] if diffs else None
+ checks.append(dict(episode=ep,first_diff=first,detail=([results[i][ep][first] for i in range(2)] if first is not None else None)))
+(r/'eval_repeat_shared_context.json').write_text(json.dumps(dict(checks=checks,traces=results),indent=2));print(json.dumps(checks,indent=2))

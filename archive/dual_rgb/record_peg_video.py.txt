@@ -1,0 +1,43 @@
+from pathlib import Path
+import os,json,torch,dill,hydra,numpy as np,random,imageio
+from PIL import Image,ImageDraw,ImageFont
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;out=r/'videos';out.mkdir(exist_ok=True)
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+run=r/'value_remedy_uniform_seed100';c=OmegaConf.load(run/'.hydra/config.yaml');p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.model.load_state_dict(torch.load(run/'last/model.pt',map_location='cpu'));m.obs_encoder.load_state_dict(torch.load(run/'last/encoder.pt',map_location='cpu'));m.cuda().eval();m.use_aug=False
+runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(out),eval_episodes=1);base=runner.env.env
+font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',18)
+writer=imageio.get_writer(str(out/'peg_insert_side_dual_rgb.mp4'),fps=20,codec='libx264',quality=8,macro_block_size=16,ffmpeg_params=['-movflags','+faststart'])
+original_step=base.step;meta=[];active={}
+def capture():
+ from mujoco_py import functions,const
+ ctx=base.env.sim._render_context_offscreen
+ ctx.opengl_context.make_context_current();functions.mjr_setBuffer(const.FB_OFFSCREEN,ctx.con)
+ pics=[]
+ for name in ['corner2','behindGripper']:
+  a=base.env.sim.render(width=480,height=480,camera_name=name,device_id=base.device_id).copy()
+  pics.append(a)
+ canvas=Image.new('RGB',(960,544),(22,28,36));draw=ImageDraw.Draw(canvas)
+ canvas.paste(Image.fromarray(pics[0]),(0,64));canvas.paste(Image.fromarray(pics[1]),(480,64))
+ draw.text((12,5),'Peg-Insert-Side | trained dual-RGB BC policy',font=font,fill='white')
+ status='SUCCESS' if active['success'] else 'IN PROGRESS'
+ draw.text((12,32),f"External camera | episode {active['episode']} | step {active['step']:03d}",font=font,fill='white')
+ draw.text((490,32),f"Hand-associated camera | {status}",font=font,fill=(100,235,155) if active['success'] else 'white')
+ writer.append_data(np.asarray(canvas))
+ if active['step']==100:canvas.save(out/f"episode{active['episode']}_preview.png")
+def step(a):
+ n,re,done,info=original_step(a);active['step']+=1;active['success']=active['success'] or bool(info['success']);capture();return n,re,done,info
+base.step=step
+for ep,seed in enumerate([940000,940001,940002],1):
+ torch.manual_seed(seed);torch.cuda.manual_seed_all(seed);np.random.seed(seed);random.seed(seed)
+ runner.env.seed(seed);obs=runner.env.reset();m.reset();active=dict(episode=ep,step=0,success=False)
+ for chunk in range(50):
+  x={k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+  with torch.no_grad():a=m.predict_action(x,deterministic=True)['action'][0].cpu().numpy()
+  obs,re,done,info=runner.env.step(a)
+  if np.all(done):break
+ meta.append(dict(seed=seed,**active));print('VIDEO_EPISODE',meta[-1],flush=True)
+writer.close();runner.env.close()
+(out/'video_metadata.json').write_text(json.dumps(dict(checkpoint=str(run/'last'),fps=20,playback='20 environment steps per video second; illustrative replay speed',episodes=meta,policy_input='2x84x84 RGB and9Dstate',display='two additional480x480renders perstep',note='new illustrative rollouts; not a success-rate evaluation; additional rendering may affect rendering state'),indent=2))
+print('VIDEO_COMPLETE',out/'peg_insert_side_dual_rgb.mp4',flush=True)

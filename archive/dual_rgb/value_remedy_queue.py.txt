@@ -1,0 +1,26 @@
+from pathlib import Path
+import os,subprocess,time,json,sys
+r=Path(__file__).resolve().parent;manifest=r/'value_remedy_queue_status.json'
+def status(phase,**kw):manifest.write_text(json.dumps(dict(phase=phase,time=time.time(),**kw),indent=2))
+status('waiting_for_gpu3',dependency='advantage4_val50_seed300')
+for _ in range(2160):
+ p=r/'advantage4_val50_seed300/audit_status.json'
+ if p.exists() and json.load(p.open()).get('phase')=='complete':
+  mem=int(subprocess.check_output(['nvidia-smi','--id=3','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True))
+  if mem<1000:break
+ time.sleep(10)
+else:status('blocked_gpu_unavailable');sys.exit(1)
+env=dict(os.environ,GPU_ID='3',CUBLAS_WORKSPACE_CONFIG=':4096:8')
+def run(script,args,label,extra=None):
+ status('running',task=label)
+ e=dict(env);e.update(extra or {})
+ with (r/'logs'/f'{label}.log').open('x') as log:
+  p=subprocess.run(['bash',str(r/'run.sh'),str(r/script),*args],env=e,stdout=log,stderr=subprocess.STDOUT)
+ if p.returncode:status('failed',task=label,exit_code=p.returncode);sys.exit(p.returncode)
+run('aligned_value_audit.py',[],'aligned_value_audit')
+for seed in [100,300]:
+ for mode in ['uniform','weighted']:
+  name=f'value_remedy_{mode}_seed{seed}'
+  run('train_value_remedy.py',[str(seed),mode],name)
+  run('evaluate_value_remedy.py',[str(seed)],name+'_test',dict(FIX_EVAL_RUN=str(r/name)))
+status('complete')

@@ -1,0 +1,38 @@
+from pathlib import Path
+import hydra,json
+from omegaconf import OmegaConf
+r=Path(__file__).parent;repo=r/'RL-100'
+p=r/'run.sh';s=p.read_text().replace('export PYTHONPATH=$EXP/RL-100','export PYTHONPATH=$EXP/RL-100:$EXP');p.write_text(s)
+p=repo/'train.py';s=p.read_text();needle='        self.offline_best_path = self.get_global_best_dir()'
+assert s.count(needle)==1
+s=s.replace(needle,"        if self.cfg.only_bc:\n            self.save_checkpoint(tag='latest')\n            print('BC_STAGE_COMPLETE', flush=True)\n            return\n\n"+needle);p.write_text(s)
+p=repo/'rl_100/env_runner/metaworld_runner.py';s=p.read_text();s=s.replace('class MetaworldRunner(BaseRunner):','from paired_env import PairedPegEnv as MetaWorldEnv\n\nclass MetaworldRunner(BaseRunner):')
+# Fixed evaluation stream reset on every run, distinct from collection seeds.
+s=s.replace('        device = policy.device', '        self.env.seed(700000)\n        device = policy.device')
+s=s.replace('            obs_list = [envs[j].reset() for j in range(wave_size)]','            for j in range(wave_size):\n                envs[j].seed(700000 + episode_idx + j)\n            obs_list = [envs[j].reset() for j in range(wave_size)]')
+p.write_text(s)
+with hydra.initialize_config_dir(config_dir=str(repo/'rl_100/config'),version_base=None):
+ for modality in ['3d','2d']:
+  cfg=hydra.compose(config_name=f'rl100_{modality}_epsilon',overrides=['task=metaworld_peg-insert-side'])
+  OmegaConf.set_struct(cfg,False)
+  cfg.task.crop_shape=None
+  cfg.task.shape_meta.obs.point_cloud.shape=[512,3]
+  for role in ['dataset','critic_dataset','scale_dataset']:
+   dc=cfg.task[role];dc._target_='paired_dataset.PairedDataset';dc.zarr_path=str(r/'data/metaworld_peg_insert_paired.zarr');dc.seed=42;dc.val_ratio=.1;dc.max_train_episodes=90;dc.scale_strategy=None
+  cfg.task.finetune_dataset=OmegaConf.create(OmegaConf.to_container(cfg.task.dataset))
+  cfg.task.env_runner.eval_episodes=20;cfg.task.env_runner.env_num=1
+  cfg.offline=False;cfg.online=False;cfg.only_bc=True;cfg.distill_phase=None
+  cfg.horizon=5;cfg.n_obs_steps=2;cfg.n_action_steps=4;cfg.use_action_embed=False
+  cfg.num_inference_steps=10;cfg.clip_std_max=.1;cfg.policy.scheduler_type='ddim';cfg.policy.model='skipnet';cfg.policy.act='mish'
+  cfg.training.num_epochs=600;cfg.training.seed=100;cfg.training.device='cuda:0';cfg.training.resume=False
+  cfg.training.rollout_every=50;cfg.training.checkpoint_every=50;cfg.training.val_every=10
+  cfg.training.max_train_steps=None;cfg.logging.mode='offline';cfg.checkpoint.save_ckpt=True
+  cfg.dataloader.batch_size=128;cfg.dataloader.num_workers=2;cfg.val_dataloader.batch_size=128;cfg.val_dataloader.num_workers=2
+  cfg.optimizer.lr=2e-4;cfg.use_recon=True;cfg.use_vib=True;cfg.kl_annealing=False
+  if modality=='2d':
+   cfg.policy.img_shape=[3,224,224];cfg.policy.use_aug=False
+   cfg.encoder_type='resnet';cfg.encoders.resnet.rgb_model.weights='r3m';cfg.encoders.resnet.share_rgb_model=False
+   cfg.encoders.resnet.recon_loss_weight=.05;cfg.encoders.resnet.kl_beta=1e-4
+  cfg.exp_name=f'peg_paired_{modality}_bc'
+  OmegaConf.save(cfg,repo/f'rl_100/config/peg_{modality}_bc.yaml')
+print('CONFIGURED',flush=True)

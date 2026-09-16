@@ -1,0 +1,25 @@
+import numpy as np
+from pathlib import Path
+import zarr
+from rl_100.dataset.metaworld_dataset import MetaworldDataset
+from rl_100.common.sampler import SequenceSampler
+from rl_100.model.common.normalizer import LinearNormalizer
+
+class PairedDataset(MetaworldDataset):
+    def __init__(self,zarr_path,**kwargs):
+        assert kwargs.get('scale_strategy') is None,'Explicitly choose reward scaling for later RL stages'
+        super().__init__(zarr_path,**kwargs)
+        root=zarr.open_group(zarr_path,mode='r');train=root['meta/train_episode_indices'][:]
+        self.train_mask=np.zeros(self.replay_buffer.n_episodes,dtype=bool);self.train_mask[train]=True
+        self.sampler=SequenceSampler(replay_buffer=self.replay_buffer,sequence_length=self.horizon,pad_before=self.pad_before,pad_after=self.pad_after,episode_mask=self.train_mask)
+    def _sample_to_data(self,sample):
+        out=super()._sample_to_data(sample)
+        for key in ['obs','next_obs']:
+            out[key]['image']=np.moveaxis(out[key]['image'],-1,1).copy()
+        return out
+    def get_normalizer(self,mode='limits',**kwargs):
+        ends=self.replay_buffer.episode_ends;starts=np.r_[0,ends[:-1]]
+        indices=np.concatenate([np.arange(starts[i],ends[i]) for i in np.flatnonzero(self.train_mask)])
+        mapping={'action':'action','agent_pos':'state','point_cloud':'point_cloud','next_action':'next_action','next_agent_pos':'next_state','next_point_cloud':'next_point_cloud'}
+        data={k:self.replay_buffer[v][indices] for k,v in mapping.items()}
+        norm=LinearNormalizer();norm.fit(data=data,last_n_dims=1,mode=mode,**kwargs);return norm

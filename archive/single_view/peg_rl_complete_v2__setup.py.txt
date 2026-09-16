@@ -1,0 +1,23 @@
+from pathlib import Path
+import os,json,subprocess,torch,dill,shutil
+from omegaconf import OmegaConf
+r=Path(__file__).parent;old=r.parent/'peg_rl_complete_v1';mode=os.environ.get('RUN_MODE','smoke');smoke=mode=='smoke';manifest=r/f'{mode}_jobs.json'
+assert not manifest.exists(),'already started'
+jobs=[]
+for j in json.loads((old/'full_jobs.json').read_text()):
+ if smoke and j['seed']!=300:continue
+ n=Path(j['run_dir']).name;source=Path(j['run_dir']);gpu=({'3d':1,'2d':7}[j['modality']] if smoke else {('3d',300):1,('2d',300):0,('3d',100):6,('2d',100):5}[(j['modality'],j['seed'])])
+ used=int(subprocess.check_output(['nvidia-smi',f'--id={gpu}','--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True));assert used<1000,(gpu,used)
+ run=r/mode/n;(run/'checkpoints').mkdir(parents=True,exist_ok=False)
+ cfg=OmegaConf.load(source/'.hydra/config.yaml');OmegaConf.set_struct(cfg,False)
+ cfg.offline=False;cfg.online=True;cfg.stage1_only=False;cfg.load_bc=False;cfg.exp_name=f'peg_v2_{mode}_{n}'
+ if smoke:
+  cfg.ppo.max_train_steps=1024;cfg.ppo.batch_size=128;cfg.ppo.mini_batch_size=32;cfg.ppo.K_epochs=2;cfg.ppo.evaluate_freq=512;cfg.task.env_runner.eval_episodes=2;cfg.ppo.online_cp_save_freq=1
+ p=torch.load(source/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill);p['cfg']=cfg;p['pickles']['_output_dir']=dill.dumps(str(run));torch.save(p,run/'checkpoints/latest.ckpt',pickle_module=dill)
+ for file in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+  if (source/file).exists():shutil.copy2(source/file,run/file)
+ for folder in ['saved_models_last','best','last','best_ema']:shutil.copytree(source/folder,run/folder)
+ name=f'peg_v2_{mode}_{n}';OmegaConf.save(cfg,r/f'RL-100/rl_100/config/{name}.yaml');(r/'logs').mkdir(exist_ok=True)
+ log=r/'logs'/f'{name}.log';cmd=['bash',str(r/'run.sh'),'train.py',f'--config-name={name}',f'hydra.run.dir={run}'] if smoke else ['bash',str(r/'run.sh'),str(r/'pipeline.py'),name,str(run)]
+ proc=subprocess.Popen(cmd,env=dict(os.environ,GPU_ID=str(gpu)),stdout=open(log,'x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ jobs.append(dict(j,run_dir=str(run),pid=proc.pid,gpu=gpu,log=str(log),completed_offline_source=str(source),render_fix='explicit current context and offscreen framebuffer before every capture',online_environment_steps=cfg.ppo.max_train_steps));manifest.write_text(json.dumps(jobs,indent=2));print(json.dumps(jobs[-1]),flush=True)

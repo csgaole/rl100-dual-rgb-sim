@@ -1,0 +1,14 @@
+from pathlib import Path
+r=Path(__file__).parent
+p=r/'paired_env.py';s=p.read_text();s=s.replace('            rgb, depth = capture(*args, **kw)', '''            # MuJoCo does not select this renderer's framebuffer on every render.
+            # Bind it explicitly when alternating independent simulation environments.
+            context = self.env.sim._render_context_offscreen
+            if context is not None:
+                from mujoco_py import functions, const
+                context.opengl_context.make_context_current()
+                functions.mjr_setBuffer(const.FB_OFFSCREEN, context.con)
+            rgb, depth = capture(*args, **kw)''');p.write_text(s)
+p=r/'run.sh';p.write_text(p.read_text().replace('peg_rl_complete_v1','peg_rl_complete_v2'))
+p=r/'RL-100/train.py';s=p.read_text().replace('        elif cfg.offline:\n            dynamics.load(dynamics_path)','        elif cfg.offline or cfg.online:\n            dynamics.load(dynamics_path)');p.write_text(s)
+p=r/'pipeline.py';p.write_text(p.read_text().replace("training_offline_then_online","online_from_completed_offline"))
+print('PREPARED_RENDER_CONTEXT_FIX')

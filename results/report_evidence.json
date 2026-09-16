@@ -1,0 +1,1096 @@
+{
+  "audited_utc": "2026-09-15T00:46:54.120607+00:00",
+  "runs": {
+    "100": {
+      "heldout_stages.json": [
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/checkpoints/latest.ckpt": "15ca43bfb3302d950ba68d9ba43a92f840459a23ff4b7713e97dc3c797a90552"
+          },
+          "stage": "bc",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/checkpoints/latest.ckpt",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.94,
+          "mean_return": 1040.304543087908,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422677.2527983
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/best/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/best/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "offline_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.94,
+          "mean_return": 1042.6695253528649,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422848.2243643
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last/model.pt": "c781f4da43c27ff7534808d177831ebeebfeb2362d77f3575f289c239b33d0fc",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "offline_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.91,
+          "mean_return": 1041.0498919315728,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423019.4247227
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.94,
+          "mean_return": 1038.7809312682202,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423190.3880765
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last/model.pt": "13d2042804f1af65b15752765cfc08c4e29f2cb0f14c73716d474eb60d5a5b6e",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.97,
+          "mean_return": 1059.2127626733093,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423360.6878388
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best_ema/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best_ema/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_ema_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.91,
+          "mean_return": 1030.9118093552106,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423530.762813
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last_ema/model.pt": "c4dbd4021f93bc0c1fcf5ef873bb802faa91095d45ec7c53d1a0fb7684506b33",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last_ema/encoder.pt": "76808464021ab8769d3069dd0261725e8a6ab8a5e567cc269ec4a35efcba76ea"
+          },
+          "stage": "online_ema_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1062.6745495419786,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423701.2996604
+        }
+      ],
+      "pipeline_status.json": {
+        "phase": "complete",
+        "updated_unix": 1789423703.1162987,
+        "exit_code": 0
+      },
+      "bc_source.json": {
+        "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed100/checkpoints/epoch=0200-test_mean_score=1.000.ckpt",
+        "sha256": "82949142c2c54e3d6e8720ebc057ea2df1c84c2a1c0a165acad59d605d240120",
+        "policy": "ema_model",
+        "selection": "validation top-k"
+      },
+      "bc_tensor_different_keys": [],
+      "bc_tensor_missing_keys": [],
+      "fingerprint_checks": [
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/checkpoints/latest.ckpt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_best_ema/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/online_ft/2026-09-14-17-58-25/online_last_ema/encoder.pt",
+          "match": true
+        }
+      ],
+      "selected_equal_bc": {
+        "best": true,
+        "online_best": true,
+        "online_best_ema": true
+      },
+      "online_updates": 488,
+      "last_update": [
+        "step 999424; collecting data time: 13.58; update time: 7.45"
+      ],
+      "last_online_eval": [
+        "timestep 1000000: collect perf: 1251.5718900356276 eval SR: 1.0; eval ret: 1024.7817095145115 actor_loss: -0.005221452033263633; critic_loss: 2046.8131823221845; cm_SR: 0; cm_ret: 0; idql_SR: 0; idql_ret: 0; ema_SR: 1.0; ema_ret: 1024.3590211457708;"
+      ],
+      "critic_epochs_completed": 100,
+      "offline_tail": [
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1996/2000 [53:53<00:05,  1.50s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1997/2000 [53:55<00:04,  1.50s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1998/2000 [53:56<00:02,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1999/2000 [53:58<00:01,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [55:10<00:00, 22.59s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [55:10<00:00,  1.66s/it]"
+      ],
+      "times": {
+        "Q_bc_20.pt": 1789404236.998025,
+        "saved_models_last/dynamics.pth": 1789405315.9308662,
+        "last/model.pt": 1789408705.3413835,
+        "online_ft/2026-09-14-17-58-25/online_last/model.pt": 1789422494.018879
+      },
+      "bc_seed": 100,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100"
+    },
+    "300": {
+      "heldout_stages.json": [
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/checkpoints/latest.ckpt": "6dd5d041c71d058daffdfab3f83c259c49886b9ae53449893fe09d6e50953642"
+          },
+          "stage": "bc",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/checkpoints/latest.ckpt",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1041.3137925559124,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422306.1733212
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/best/model.pt": "76e1ffbfe773af7af3cf85e85b41be56c55a4711050373b6369abc7c5d17101a",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/best/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "offline_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1047.1849264661737,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422476.3824153
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last/model.pt": "861a638d24fcfc7cd6ff94a660bf65ac591a2eb289cdb95fbc7db6fa6287ac9d",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "offline_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.94,
+          "mean_return": 1058.3002578841804,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422646.3660862
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best/model.pt": "bcc0f6301007efc6167fde2e106ece386671e06e7e000cba5b3e5574e23abc6b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "online_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1049.524400502188,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422816.5810368
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last/model.pt": "7ea22bf3d0334c9a363b2cb66e9255b34df353517a8da758a5fa03574ac74156",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "online_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.99,
+          "mean_return": 1146.2975642139738,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422987.981816
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best_ema/model.pt": "76e1ffbfe773af7af3cf85e85b41be56c55a4711050373b6369abc7c5d17101a",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best_ema/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "online_ema_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.92,
+          "mean_return": 1053.9822848268366,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423157.9900684
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last_ema/model.pt": "0cbafc39cede9db33b95f70835ed57731233315644c3fde97550faa4270ee30e",
+            "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last_ema/encoder.pt": "5b485f8381caa07dc9ba8f3d3c0c2a49682fe85228e3d44f2750bc1e28c5278b"
+          },
+          "stage": "online_ema_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.98,
+          "mean_return": 1142.1176184662852,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423328.6714575
+        }
+      ],
+      "pipeline_status.json": {
+        "phase": "complete",
+        "updated_unix": 1789423330.394903,
+        "exit_code": 0
+      },
+      "bc_source.json": {
+        "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed300/checkpoints/epoch=0200-test_mean_score=0.950.ckpt",
+        "sha256": "4562a0c3ea87c629fa644c9839e724704d6af8b884bff11ea55c57fa6df2c86e",
+        "policy": "ema_model",
+        "selection": "validation top-k"
+      },
+      "bc_tensor_different_keys": [],
+      "bc_tensor_missing_keys": [],
+      "fingerprint_checks": [
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/checkpoints/latest.ckpt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_best_ema/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/online_ft/2026-09-14-17-53-51/online_last_ema/encoder.pt",
+          "match": true
+        }
+      ],
+      "selected_equal_bc": {
+        "best": false,
+        "online_best": false,
+        "online_best_ema": false
+      },
+      "online_updates": 488,
+      "last_update": [
+        "step 999424; collecting data time: 13.43; update time: 7.50"
+      ],
+      "last_online_eval": [
+        "timestep 1000000: collect perf: 1255.3177741835523 eval SR: 1.0; eval ret: 1100.9486234038548 actor_loss: -0.005115199783351272; critic_loss: 1853.1481558736166; cm_SR: 0; cm_ret: 0; idql_SR: 0; idql_ret: 0; ema_SR: 0.9; ema_ret: 1109.2363568176502;"
+      ],
+      "critic_epochs_completed": 100,
+      "offline_tail": [
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1996/2000 [53:22<00:05,  1.47s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1997/2000 [53:24<00:04,  1.47s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1998/2000 [53:25<00:02,  1.47s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1999/2000 [53:27<00:01,  1.47s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:45<00:00, 24.43s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:45<00:00,  1.64s/it]"
+      ],
+      "times": {
+        "Q_bc_20.pt": 1789403973.2743313,
+        "saved_models_last/dynamics.pth": 1789405073.7020335,
+        "last/model.pt": 1789408431.645548,
+        "online_ft/2026-09-14-17-53-51/online_last/model.pt": 1789422123.8909118
+      },
+      "bc_seed": 300,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300"
+    },
+    "200": {
+      "heldout_stages.json": [
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/checkpoints/latest.ckpt": "e60ea4f712a8413bae649e03d54a2c25f98caa6ab3a4e16a1492f1f0113edd3b"
+          },
+          "stage": "bc",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/checkpoints/latest.ckpt",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1040.2281031173145,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422602.8324094
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/best/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/best/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "offline_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.91,
+          "mean_return": 1035.5939784317409,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422775.1398277
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/last/model.pt": "c0eacd660f5432b73341634712bf64a4883b89fd64cfc92f9e6fdd55e59e097b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/last/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "offline_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1033.8405651042362,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422947.9789486
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.94,
+          "mean_return": 1042.4539418743045,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423120.2788084
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last/model.pt": "4efc7631afc16aa6d39182d40235ef8d1bdcb716d5f8def83cb51f242b17a6dc",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.96,
+          "mean_return": 1092.665853296385,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423291.9630728
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best_ema/model.pt": "859a69b79709139cb8e588870244886816b48a6d4adc29c75818fd79a3f8747b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best_ema/encoder.pt": "f425340ae7e9e22b075ee3be4fa5b3463d3e659cf897e28fb8d9db4c80fdd930"
+          },
+          "stage": "online_ema_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1040.8323960452033,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423464.136319
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last_ema/model.pt": "fda82999e172a19e2c44694633c659747cab2d7faf17df950fc4757781383a5b",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last_ema/encoder.pt": "76808464021ab8769d3069dd0261725e8a6ab8a5e567cc269ec4a35efcba76ea"
+          },
+          "stage": "online_ema_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.91,
+          "mean_return": 1070.7212393384898,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423635.7461314
+        }
+      ],
+      "pipeline_status.json": {
+        "phase": "complete",
+        "updated_unix": 1789423637.4805784,
+        "exit_code": 0
+      },
+      "bc_source.json": {
+        "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed100/checkpoints/epoch=0200-test_mean_score=1.000.ckpt",
+        "sha256": "82949142c2c54e3d6e8720ebc057ea2df1c84c2a1c0a165acad59d605d240120",
+        "policy": "ema_model",
+        "selection": "validation top-k"
+      },
+      "bc_tensor_different_keys": [],
+      "bc_tensor_missing_keys": [],
+      "fingerprint_checks": [
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/checkpoints/latest.ckpt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_best_ema/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200/online_ft/2026-09-14-18-00-33/online_last_ema/encoder.pt",
+          "match": true
+        }
+      ],
+      "selected_equal_bc": {
+        "best": true,
+        "online_best": true,
+        "online_best_ema": true
+      },
+      "online_updates": 488,
+      "last_update": [
+        "step 999424; collecting data time: 12.74; update time: 7.43"
+      ],
+      "last_online_eval": [
+        "timestep 1000000: collect perf: 1094.106795126925 eval SR: 1.0; eval ret: 1069.819565552773 actor_loss: -0.005026961634051986; critic_loss: 2478.522043075561; cm_SR: 0; cm_ret: 0; idql_SR: 0; idql_ret: 0; ema_SR: 1.0; ema_ret: 1085.1390090509856;"
+      ],
+      "critic_epochs_completed": 100,
+      "offline_tail": [
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1996/2000 [52:53<00:05,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1997/2000 [52:54<00:04,  1.48s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1998/2000 [52:56<00:02,  1.48s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1999/2000 [52:57<00:01,  1.48s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:07<00:00, 22.16s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:07<00:00,  1.62s/it]"
+      ],
+      "times": {
+        "Q_bc_20.pt": 1789404872.181751,
+        "saved_models_last/dynamics.pth": 1789405515.4118176,
+        "last/model.pt": 1789408833.0508473,
+        "online_ft/2026-09-14-18-00-33/online_last/model.pt": 1789422418.7868757
+      },
+      "bc_seed": 100,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200"
+    },
+    "400": {
+      "heldout_stages.json": [
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/checkpoints/latest.ckpt": "6ef3e6a89ef4287951ad81b47eb14b58b9dea0598211e735827d8f20a6f32f41"
+          },
+          "stage": "bc",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/checkpoints/latest.ckpt",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1043.575665907347,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422364.8743808
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/best/model.pt": "5a4e3fce96ace8fcdd6d9404dac4d3abaf902c26f55b8e78d073e41028307073",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/best/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "offline_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1045.3773011911167,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422534.9847524
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/last/model.pt": "0fefa64ea5c91a10d79f81d0967e9ffcf4dc97cbd5d74c927d41b83c438c7f64",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/last/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "offline_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1048.7449518546448,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422704.4308918
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best/model.pt": "f4021d979a3922881838c566375bacdef38c63855b71eed5ef5bf602ab1ddcf6",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "online_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.93,
+          "mean_return": 1021.043575396282,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789422874.8838952
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last/model.pt": "97a921756391ee59a3b540f4a1583fef5726a26b1310410e69119a7af86498e5",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last/encoder.pt": "fc79e36c9706b86c363268cfb44c4b314b981c8a5777438fcccf4cc91e347555"
+          },
+          "stage": "online_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.99,
+          "mean_return": 1126.5565615316063,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423044.8887687
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best_ema/model.pt": "596ddd291dc293e4f4472ab07b52f889e79f9fc8b9ec99a24a2c72a9f615294e",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best_ema/encoder.pt": "f130cc08095ae220b96cd8d2729167a73eecbd5bc16beb3e96685bb796429355"
+          },
+          "stage": "online_ema_selected",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.95,
+          "mean_return": 1034.1268133876183,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423214.815155
+        },
+        {
+          "fingerprint": {
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last_ema/model.pt": "06012ae9a915453a1d329b851c5586f5ff0a059e3d6ddbe5d565ab1a27fdccce",
+            "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last_ema/encoder.pt": "5b485f8381caa07dc9ba8f3d3c0c2a49682fe85228e3d44f2750bc1e28c5278b"
+          },
+          "stage": "online_ema_last",
+          "checkpoint": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last_ema",
+          "episodes": 100,
+          "seed_base": 900000,
+          "success_rate": 0.98,
+          "mean_return": 1114.6565691473954,
+          "role": "fixed heldout evaluation; never used to select checkpoints",
+          "updated_unix": 1789423384.0645747
+        }
+      ],
+      "pipeline_status.json": {
+        "phase": "complete",
+        "updated_unix": 1789423385.768217,
+        "exit_code": 0
+      },
+      "bc_source.json": {
+        "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed300/checkpoints/epoch=0200-test_mean_score=0.950.ckpt",
+        "sha256": "4562a0c3ea87c629fa644c9839e724704d6af8b884bff11ea55c57fa6df2c86e",
+        "policy": "ema_model",
+        "selection": "validation top-k"
+      },
+      "bc_tensor_different_keys": [],
+      "bc_tensor_missing_keys": [],
+      "fingerprint_checks": [
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/checkpoints/latest.ckpt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_best_ema/encoder.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last_ema/model.pt",
+          "match": true
+        },
+        {
+          "file": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400/online_ft/2026-09-14-17-55-17/online_last_ema/encoder.pt",
+          "match": true
+        }
+      ],
+      "selected_equal_bc": {
+        "best": true,
+        "online_best": false,
+        "online_best_ema": false
+      },
+      "online_updates": 488,
+      "last_update": [
+        "step 999424; collecting data time: 13.64; update time: 7.50"
+      ],
+      "last_online_eval": [
+        "timestep 1000000: collect perf: 1119.6521775773904 eval SR: 1.0; eval ret: 1100.6454029294318 actor_loss: -0.0053005357827059915; critic_loss: 1740.8293566894529; cm_SR: 0; cm_ret: 0; idql_SR: 0; idql_ret: 0; ema_SR: 1.0; ema_ret: 1120.1335765816648;"
+      ],
+      "critic_epochs_completed": 100,
+      "offline_tail": [
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1996/2000 [52:59<00:05,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1997/2000 [53:00<00:04,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1998/2000 [53:02<00:02,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 1999/2000 [53:03<00:01,  1.49s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:14<00:00, 22.23s/it]",
+        "bppo updating ......: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 2000/2000 [54:14<00:00,  1.63s/it]"
+      ],
+      "times": {
+        "Q_bc_20.pt": 1789404406.7117326,
+        "saved_models_last/dynamics.pth": 1789405191.7543855,
+        "last/model.pt": 1789408517.3708744,
+        "online_ft/2026-09-14-17-55-17/online_last/model.pt": 1789422182.5468972
+      },
+      "bc_seed": 300,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400"
+    }
+  },
+  "dataset_validation.json": {
+    "episodes": 100,
+    "transitions": 20000,
+    "attempted": 107,
+    "expert_success_rate": 0.9345794392523364,
+    "train": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      69,
+      70,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      95,
+      97,
+      98,
+      99
+    ],
+    "validation": [
+      96,
+      71,
+      8,
+      60,
+      41,
+      94,
+      68,
+      9,
+      19,
+      82
+    ],
+    "temporal_pairing": true,
+    "shapes": {
+      "action": [
+        20000,
+        4
+      ],
+      "done": [
+        20000,
+        1
+      ],
+      "full_state": [
+        20000,
+        39
+      ],
+      "image_behindGripper": [
+        20000,
+        84,
+        84,
+        3
+      ],
+      "image_corner2": [
+        20000,
+        84,
+        84,
+        3
+      ],
+      "next_action": [
+        20000,
+        4
+      ],
+      "next_full_state": [
+        20000,
+        39
+      ],
+      "next_image_behindGripper": [
+        20000,
+        84,
+        84,
+        3
+      ],
+      "next_image_corner2": [
+        20000,
+        84,
+        84,
+        3
+      ],
+      "next_state": [
+        20000,
+        9
+      ],
+      "return": [
+        20000,
+        1
+      ],
+      "reward": [
+        20000,
+        1
+      ],
+      "state": [
+        20000,
+        9
+      ],
+      "success": [
+        20000,
+        1
+      ],
+      "timeout": [
+        20000,
+        1
+      ]
+    },
+    "sha256_shared": {
+      "action": "c844e4aa80c14bd5cc9671cd2a8f01c5133e648ed52731a01fc704adb695b802",
+      "state": "fb360f4156b5baca7ef8854908d8865de6f8b6e545ac8433ca2f072f3e503cf5",
+      "reward": "0596d075aaef527a29456f646479a18c25e1ec81d3a24ad0177b32f199c2f727",
+      "success": "53adc7ad3d8f56bc6786d49d5000ed7529196fd5a55fa7b0d5bf3aa232fa97b3",
+      "done": "28b4f41a7f3ee6d8cc87272db6e09c6d3566551fd4d18702b041a21658272a85",
+      "timeout": "2ea67db29b1a1e5cd601beed64ccd933c242050078682238285f52de348f0003",
+      "return": "decc3267c9d4426fbc508b164f054605159f2d92d5403add9e4377045b783ea5"
+    }
+  },
+  "bc_selected_eval_seed100.json": {
+    "seed": 100,
+    "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed100/checkpoints/epoch=0200-test_mean_score=1.000.ckpt",
+    "sha256": "82949142c2c54e3d6e8720ebc057ea2df1c84c2a1c0a165acad59d605d240120",
+    "policy": "ema_model",
+    "epoch": 200,
+    "episodes": 100,
+    "seed_base": 900000,
+    "success_rate": 0.91,
+    "mean_return": 1029.0193926067034,
+    "bn_buffers_verified": 60,
+    "selection": "validation top-k only",
+    "completed_unix": 1789401581.5403163
+  },
+  "bc_selected_eval_seed300.json": {
+    "seed": 300,
+    "checkpoint": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bn_repaired_seed300/checkpoints/epoch=0200-test_mean_score=0.950.ckpt",
+    "sha256": "4562a0c3ea87c629fa644c9839e724704d6af8b884bff11ea55c57fa6df2c86e",
+    "policy": "ema_model",
+    "epoch": 200,
+    "episodes": 100,
+    "seed_base": 900000,
+    "success_rate": 0.92,
+    "mean_return": 1034.2609908695442,
+    "bn_buffers_verified": 60,
+    "selection": "validation top-k only",
+    "completed_unix": 1789401582.169262
+  },
+  "repair_manifest.json": [
+    {
+      "seed": 100,
+      "source": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bc_seed100/checkpoints/latest.ckpt",
+      "sha256": "b0f1fe39de825a87e678fd0873aa2fc4468b252bb7e9db0ae6a540dd71ae86fc",
+      "repaired": "${oc.env:RL100_DUAL_ROOT}/repaired_sources/seed100/checkpoints/latest.ckpt",
+      "completed_epoch": 150,
+      "resume_epoch": 151,
+      "global_step": 21291,
+      "bn_buffers": 60
+    },
+    {
+      "seed": 300,
+      "source": "${oc.env:RL100_DUAL_ROOT}/runs/dual_rgb_bc_seed300/checkpoints/latest.ckpt",
+      "sha256": "fb9b7cb3bdd1ad458f333ac24fbdfd75a59b8dc834ad3d89c5b108a86e8cb051",
+      "repaired": "${oc.env:RL100_DUAL_ROOT}/repaired_sources/seed300/checkpoints/latest.ckpt",
+      "completed_epoch": 150,
+      "resume_epoch": 151,
+      "global_step": 21291,
+      "bn_buffers": 60
+    }
+  ],
+  "rl_full_jobs.json": [
+    {
+      "seed": 100,
+      "gpu": 5,
+      "pid": 9110,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed100",
+      "log": "${oc.env:RL100_DUAL_ROOT}/logs/dual_rgb_rl_full_100.log",
+      "started_unix": 1789401818.8896227,
+      "offline_updates": 2000,
+      "online_transitions": 1000000
+    },
+    {
+      "seed": 300,
+      "gpu": 6,
+      "pid": 10584,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_full_seed300",
+      "log": "${oc.env:RL100_DUAL_ROOT}/logs/dual_rgb_rl_full_300.log",
+      "started_unix": 1789401820.5126886,
+      "offline_updates": 2000,
+      "online_transitions": 1000000
+    }
+  ],
+  "rl_replicates_jobs.json": [
+    {
+      "seed": 200,
+      "bc_seed": 100,
+      "gpu": 2,
+      "pid": 554304,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed200",
+      "log": "${oc.env:RL100_DUAL_ROOT}/logs/dual_rgb_rl_replicates_200.log",
+      "started_unix": 1789402356.1280782,
+      "offline_updates": 2000,
+      "online_transitions": 1000000
+    },
+    {
+      "seed": 400,
+      "bc_seed": 300,
+      "gpu": 7,
+      "pid": 556205,
+      "run_dir": "${oc.env:RL100_DUAL_ROOT}/rl_replicates_seed400",
+      "log": "${oc.env:RL100_DUAL_ROOT}/logs/dual_rgb_rl_replicates_400.log",
+      "started_unix": 1789402357.8380282,
+      "offline_updates": 2000,
+      "online_transitions": 1000000
+    }
+  ],
+  "bn_diagnostic.json": [
+    {
+      "variant": "ema_original",
+      "success": 0.0,
+      "return_mean": 1.1284652979045933
+    },
+    {
+      "variant": "ema_copy_bn",
+      "success": 1.0,
+      "return_mean": 1027.7401884754509
+    },
+    {
+      "variant": "raw",
+      "success": 0.95,
+      "return_mean": 962.835095489103
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+from pathlib import Path
+import json,os,signal,re,time
+r=Path(__file__).parent;old=r.parent/'peg_rl_complete_v1'
+assert not (old/'superseded_online.json').exists()
+for n in ['3d_300','2d_300']:
+ log=(r/'logs'/f'peg_v2_smoke_{n}.log').read_text(errors='replace')
+ assert 'ONLINE_POLICY_COMPLETE' in log and 'Traceback' not in log,n
+records=[]
+for j in json.loads((old/'full_jobs.json').read_text()):
+ pid=j['pid'];cmd=Path(f'/proc/{pid}/cmdline').read_bytes().decode().replace('\x00',' ')
+ assert str(old/'pipeline.py') in cmd,(pid,cmd)
+ assert os.getpgid(pid)==pid
+ s=Path(j['log']).read_text(errors='replace');steps=re.findall(r'step (\d+); collecting data time:',s)
+ records.append(dict(pid=pid,run=j['run_dir'],last_logged_environment_steps=int(steps[-1]),reason='superseded: missing renderer context/framebuffer binding in multi-environment online collection; offline artifacts retained',stopped_unix=time.time()))
+ os.killpg(pid,signal.SIGTERM)
+(old/'superseded_online.json').write_text(json.dumps(records,indent=2));print(json.dumps(records),flush=True)

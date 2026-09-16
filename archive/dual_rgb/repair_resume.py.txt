@@ -1,0 +1,40 @@
+from pathlib import Path
+import torch,dill,json,hashlib,copy
+from omegaconf import OmegaConf
+root=Path(__file__).resolve().parent
+base=root.parent/'peg_rl_complete_v2/RL-100'
+source=(base/'train.py').read_text()
+needle='            for local_epoch_idx in range(cfg.training.num_epochs):'
+assert source.count(needle)==2
+source=source.replace(needle,'            ema.optimization_step = self.global_step\n            for local_epoch_idx in range(max(0, cfg.training.num_epochs - self.epoch)):',1)
+needle='                            ema.step(self.model)'
+assert source.count(needle)>=1
+source=source.replace(needle,needle+'\n                            with torch.no_grad():\n                                ema_buffers = dict(self.ema_model.named_buffers())\n                                for name, buffer in self.model.named_buffers():\n                                    ema_buffers[name].copy_(buffer)')
+# Keep Hydra configuration resolution anchored to the original configuration tree.
+source=source.replace('config_path=str(pathlib.Path(__file__).parent.joinpath(', 'config_path=str(pathlib.Path('+repr(str(base))+').joinpath(')
+(root/'train_repaired.py').write_text(source)
+manifest=[]
+for seed in [100,300]:
+ old=root/f'runs/dual_rgb_bc_seed{seed}'
+ cp=old/'checkpoints/latest.ckpt'
+ payload=torch.load(cp,map_location='cpu',pickle_module=dill)
+ raw=payload['state_dicts']['model'];ema=payload['state_dicts']['ema_model']
+ keys=[k for k in raw if k.endswith(('running_mean','running_var','num_batches_tracked'))]
+ assert keys and 'optimizer' in payload['state_dicts']
+ for k in keys:ema[k]=raw[k].clone()
+ epoch=dill.loads(payload['pickles']['epoch']);step=dill.loads(payload['pickles']['global_step'])
+ # Periodic checkpoint is written after that epoch's updates, before counters advance.
+ payload['pickles']['epoch']=dill.dumps(epoch+1)
+ payload['pickles']['global_step']=dill.dumps(step+1)
+ payload['pickles']['_output_dir']=dill.dumps(str(root/f'runs/dual_rgb_bn_repaired_seed{seed}'))
+ repaired=root/f'repaired_sources/seed{seed}'
+ (repaired/'checkpoints').mkdir(parents=True,exist_ok=True)
+ out=repaired/'checkpoints/latest.ckpt';assert not out.exists()
+ torch.save(payload,out,pickle_module=dill)
+ cfg=OmegaConf.load(old/'.hydra/config.yaml');OmegaConf.set_struct(cfg,False)
+ cfg.training.resume=True;cfg.unio4.stage1_resume_dir=str(repaired)
+ cfg.exp_name=f'dual_rgb_bn_repaired_{seed}'
+ OmegaConf.save(cfg,base/f'rl_100/config/dual_rgb_bn_repaired_{seed}.yaml')
+ manifest.append(dict(seed=seed,source=str(cp),sha256=hashlib.sha256(cp.read_bytes()).hexdigest(),repaired=str(out),completed_epoch=epoch,resume_epoch=epoch+1,global_step=step+1,bn_buffers=len(keys)))
+(root/'repair_manifest.json').write_text(json.dumps(manifest,indent=2))
+print(json.dumps(manifest,indent=2))

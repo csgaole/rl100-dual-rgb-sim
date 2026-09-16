@@ -1,0 +1,47 @@
+from pathlib import Path
+import os,json,torch,dill,hydra,numpy as np,random,hashlib,time
+from omegaconf import OmegaConf
+from types import SimpleNamespace
+r=Path(__file__).resolve().parent;out=r/'offline_diagnostics_v2';out.mkdir(exist_ok=True)
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True)
+def rng(s):torch.manual_seed(s);torch.cuda.manual_seed_all(s);np.random.seed(s);random.seed(s)
+def inp(obs):return {k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+def digest(obs):return {k:hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k,v in obs.items()}
+for seed in [100,300]:
+ run=r/f'rl_full_seed{seed}';c=OmegaConf.load(run/'.hydra/config.yaml');p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+ m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model']);m.cuda().eval();m.use_aug=False
+ # Construct exactly the critic architecture used by the trainer.
+ src=(r/'train_offline_fixed.py').read_text();a=src.index('        iql, Q_bc, value = self.model.initialize_critic(');z=src.index('        stage1_artifact_dir',a)
+ scope=dict(self=SimpleNamespace(model=m,cfg=c),cfg=c,device=torch.device('cuda'))
+ exec(src[a:z].replace('        iql, Q_bc, value =','iql, Q_bc, value =',1),scope)
+ iql=scope['iql'];iql.load(str(run/'Q_bc_20.pt'),str(run/'value_20.pt'),str(run/'encoder.pt') if (run/'encoder.pt').exists() else None);iql.eval();iql.obs_encoder.eval()
+ # Heldout diagnostic: Q rankings are predictions, not ground-truth labels.
+ dataset=hydra.utils.instantiate(c.task.dataset).get_validation_dataset();loader=torch.utils.data.DataLoader(dataset,batch_size=64,shuffle=False,num_workers=0)
+ stats=[];rng(720000)
+ with torch.no_grad():
+  for bi,batch in enumerate(loader):
+   obs={k:v.cuda().float() for k,v in batch['obs'].items()};feat=m.obs2feature(obs,training=False,fix_encoder=True)[-1]
+   expert=m.normalizer['action'].normalize(batch['action'].cuda().float())[:,int(c.n_obs_steps)-1]
+   bc=m.normalizer['action'].normalize(m.predict_action(obs,deterministic=True)['action'])[:,0]
+   acts={'expert':expert,'bc':bc,'perturb_small':(expert+.1*torch.randn_like(expert)).clamp(-1,1),'random':torch.rand_like(expert)*2-1}
+   qs={k:iql.minQ(feat,v).reshape(-1).cpu().numpy() for k,v in acts.items()}
+   for j in range(len(expert)):stats.append({k:float(v[j]) for k,v in qs.items()})
+ summary={k:float(np.mean([v[k] for v in stats])) for k in stats[0]}
+ summary.update(n=len(stats),expert_beats_random=float(np.mean([v['expert']>v['random'] for v in stats])),expert_beats_perturb=float(np.mean([v['expert']>v['perturb_small'] for v in stats])))
+ (out/f'critic_seed{seed}.json').write_text(json.dumps(dict(summary=summary,rows=stats)));print('CRITIC_AUDIT',seed,summary,flush=True)
+ del dataset,loader,iql,scope;torch.cuda.empty_cache()
+ results=[]
+ for repeat in range(3):
+  rng(700000);runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(out),eval_episodes=50);episodes=[]
+  for ep in range(50):
+   rng(700000+ep);runner.env.seed(700000+ep);obs=runner.env.reset();m.reset();first=digest(obs);success=False;ret=0.;action0=None
+   for step in range(50):
+    with torch.no_grad():action=m.predict_action(inp(obs),deterministic=True)['action'][0].cpu().numpy()
+    if step==0:action0=action.tolist()
+    obs,reward,done,info=runner.env.step(action);ret+=float(reward);success=success or bool(np.max(info['success']))
+    if np.all(done):break
+   episodes.append(dict(seed=700000+ep,success=success,return_=ret,initial_obs=first,initial_action=action0))
+  runner.env.close();results.append(dict(repeat=repeat,success_rate=sum(e['success'] for e in episodes)/50,episodes=episodes));(out/f'repeat_seed{seed}.json').write_text(json.dumps(results));print('REPEAT_COMPLETE',seed,repeat,results[-1]['success_rate'],flush=True)
+ del m;torch.cuda.empty_cache()
+(out/'status.json').write_text(json.dumps(dict(phase='complete',time=time.time())))

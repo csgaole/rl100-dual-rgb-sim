@@ -1,0 +1,15 @@
+from pathlib import Path
+import sys,json,torch,hydra,numpy as np,dill
+from omegaconf import OmegaConf
+run=Path(sys.argv[1]);cp=Path(sys.argv[2]);out=Path(sys.argv[3])
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+cfg=OmegaConf.load(run/'.hydra/config.yaml')
+p=torch.load(cp,map_location='cpu',pickle_module=dill);epoch=int(dill.loads(p['pickles']['epoch']))
+model=hydra.utils.instantiate(cfg.policy)
+model.load_state_dict(p['state_dicts']['ema_model' if cfg.training.use_ema else 'model']);model.cuda().eval()
+if hasattr(model.obs_encoder,'force_stochastic'):model.obs_encoder.force_stochastic=False
+runner=hydra.utils.instantiate(cfg.task.env_runner,output_dir=str(run),eval_episodes=100)
+runner.eval_seed_base=800000;torch.manual_seed(800000);np.random.seed(800000)
+metrics=runner.run(model)
+result=dict(checkpoint=str(cp),epoch_index=epoch,within_requested_cap=epoch<=400,episodes=100,seed_base=800000,success_rate=float(metrics['test_mean_score']),mean_return=float(metrics['mean_returns']),role='checkpoint_selection_validation; not final heldout test')
+out.parent.mkdir(exist_ok=True,parents=True);out.write_text(json.dumps(result,indent=2));print('CHECKPOINT_EVALUATED',json.dumps(result),flush=True)

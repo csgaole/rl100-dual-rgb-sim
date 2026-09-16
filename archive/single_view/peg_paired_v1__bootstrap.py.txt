@@ -1,0 +1,25 @@
+from pathlib import Path
+import json,subprocess,os,time
+r=Path(__file__).parent
+deadline=time.time()+600
+while True:
+ complete=True
+ for i,n in [(0,34),(1,33),(2,33)]:
+  p=r/f'data/seeded_gain20_shard{i}/status.json'
+  try:complete &= json.loads(p.read_text())['accepted']==n
+  except (FileNotFoundError,json.JSONDecodeError):complete=False
+ if complete:break
+ if time.time()>deadline:raise RuntimeError('Collection did not reach target')
+ time.sleep(5)
+subprocess.run(['bash',str(r/'run.sh'),str(r/'prepare.py'),'20'],check=True)
+for attempt in range(60):
+ rows=subprocess.check_output(['nvidia-smi','--query-gpu=index,memory.used','--format=csv,noheader,nounits'],text=True)
+ usage={int(x.split(',')[0]):int(x.split(',')[1]) for x in rows.strip().splitlines()}
+ if all(usage[g]<1000 for g in [1,4,6]):break
+ time.sleep(5)
+else:raise RuntimeError('Previously free GPUs are occupied; no training launched')
+subprocess.run(['bash',str(r/'run.sh'),str(r/'launch_bc.py')],check=True)
+assert not (r/'supervisor.json').exists()
+p=subprocess.Popen(['<LOCAL_PATH>','-u',str(r/'watch_bc.py')],stdout=open(r/'logs/supervisor.log','x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+(r/'supervisor.json').write_text(json.dumps(dict(pid=p.pid,scope='3D BC -> independent 100 episodes >=50% -> RGB BC -> independent 100 episodes; stop before RL'),indent=2))
+print('STAGED_BC_LAUNCHED',p.pid,flush=True)

@@ -1,0 +1,35 @@
+from pathlib import Path
+import json,re,hashlib,datetime
+import torch,dill
+r=Path(__file__).resolve().parent
+out={'audited_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'runs':{}}
+for name in ['dataset_validation.json','bc_selected_eval_seed100.json','bc_selected_eval_seed300.json','repair_manifest.json','rl_full_jobs.json','rl_replicates_jobs.json','bn_diagnostic.json']:
+ out[name]=json.loads((r/name).read_text())
+for mode,seed,bcseed in [('full',100,100),('full',300,300),('replicates',200,100),('replicates',400,300)]:
+ run=r/f'rl_{mode}_seed{seed}';s=(r/f'logs/dual_rgb_rl_{mode}_{seed}.log').read_text()
+ d={k:json.loads((run/k).read_text()) for k in ['heldout_stages.json','pipeline_status.json','bc_source.json']}
+ source=torch.load(d['bc_source.json']['checkpoint'],map_location='cpu',pickle_module=dill)['state_dicts']['ema_model']
+ current=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)['state_dicts']['model']
+ d['bc_tensor_different_keys']=[k for k in source if not torch.equal(source[k],current[k])]
+ d['bc_tensor_missing_keys']=list(set(source)^set(current))
+ d['fingerprint_checks']=[]
+ for x in d['heldout_stages.json']:
+  for file,expected in x['fingerprint'].items():
+   d['fingerprint_checks'].append({'file':file,'match':hashlib.sha256(Path(file).read_bytes()).hexdigest()==expected})
+ d['selected_equal_bc']={}
+ for stage in ['best','online_best','online_best_ema']:
+  heads=torch.load(run/stage/'model.pt',map_location='cpu')
+  enc=torch.load(run/stage/'encoder.pt',map_location='cpu')
+  d['selected_equal_bc'][stage]=all(torch.equal(v,current['model.'+k]) for k,v in heads.items()) and all(torch.equal(v,current['obs_encoder.'+k]) for k,v in enc.items())
+ d['online_updates']=len(re.findall(r'step \d+; collecting data time:',s))
+ d['last_update']=re.findall(r'step \d+; collecting data time:[^\n]+',s)[-1:]
+ d['last_online_eval']=re.findall(r'timestep \d+:[^\n]+',s)[-1:]
+ d['critic_epochs_completed']=len(re.findall(r'Step: \d+, Q loss:',s))
+ d['offline_tail']=re.findall(r'.*(?:bppo|BPPO).*',s)[-6:]
+ d['times']={}
+ for p in [run/'Q_bc_20.pt',run/'saved_models_last/dynamics.pth',run/'last/model.pt',*list((run/'online_ft').glob('*/online_last/model.pt'))]:
+  if p.exists():d['times'][str(p.relative_to(run))]=p.stat().st_mtime
+ d['bc_seed']=bcseed;d['run_dir']=str(run)
+ out['runs'][str(seed)]=d
+(r/'report_evidence.json').write_text(json.dumps(out,indent=2))
+print(json.dumps({s:{k:d[k] for k in ['bc_tensor_different_keys','selected_equal_bc','online_updates','critic_epochs_completed']} for s,d in out['runs'].items()},indent=2))

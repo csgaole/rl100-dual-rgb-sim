@@ -1,0 +1,10 @@
+from pathlib import Path
+import os,sys,json,time,subprocess
+r=Path(__file__).resolve().parent;seed=int(sys.argv[1]);run=r/f'offline_fixed_full_seed{seed}'
+def status(phase,**kw):(run/'fix_pipeline_status.json').write_text(json.dumps(dict(phase=phase,time=time.time(),**kw),indent=2))
+status('offline_training')
+p=subprocess.run(['bash',str(r/'run.sh'),str(r/'train_offline_fixed.py'),f'--config-name={run.name}',f'hydra.run.dir={run}'])
+if p.returncode:status('failed',exit_code=p.returncode);sys.exit(p.returncode)
+status('paired_evaluation')
+p=subprocess.run(['bash',str(r/'run.sh'),str(r/'evaluate_offline_fix.py'),str(seed)])
+status('complete' if p.returncode==0 else 'evaluation_failed',exit_code=p.returncode)

@@ -1,0 +1,57 @@
+"""Six-slot, quality-gated paired BC; no unvalidated RL auto-launch."""
+from pathlib import Path
+import subprocess,os,json,time,datetime,re
+r=Path(__file__).parent
+jobs=json.loads((r/'bc_jobs.json').read_text())['jobs'];children={}
+for j in jobs:j['phase']='3d_bc'
+sources={j['seed']:j for j in jobs}
+for gpu,seed in [(3,100),(5,200),(7,300)]:
+ jobs.append(dict(name=f'rgb_bc_seed{seed}',gpu=gpu,seed=seed,phase='await_3d_gate',run_dir=str(r/f'runs/rgb_bc_seed{seed}'),pid=None))
+def save():
+ tmp=r/'pipeline_status.tmp';tmp.write_text(json.dumps(dict(updated_utc=datetime.datetime.utcnow().isoformat(),jobs=jobs,next_stage='offline RL after BC-result and RL-path audit'),indent=2));tmp.replace(r/'pipeline_status.json')
+def start(j,args,log):
+ p=subprocess.Popen(['bash',str(r/'run.sh')]+args,env=dict(os.environ,GPU_ID=str(j['gpu'])),stdout=open(log,'x'),stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+ children[p.pid]=p;j['pid']=p.pid;j['log']=str(log);print('START',j['name'],j['phase'],p.pid,flush=True)
+def alive(pid):
+ if pid in children:return children[pid].poll() is None
+ try:return Path(f'/proc/{pid}/stat').read_text().split()[2]!='Z'
+ except FileNotFoundError:return False
+def latest_candidate(run):
+ cp=list(Path(run).joinpath('checkpoints').glob('epoch=*-test_mean_score=*.ckpt'))
+ cp=[p for p in cp if time.time()-p.stat().st_mtime>10]
+ if not cp:return None,0.
+ best=max(cp,key=lambda p:float(re.search(r'test_mean_score=([0-9.]+)\.ckpt',p.name)[1]))
+ return str(best),float(re.search(r'test_mean_score=([0-9.]+)\.ckpt',best.name)[1])
+while True:
+ for j in jobs:
+  phase=j['phase'];run=Path(j['run_dir'])
+  if phase in ['failed','gate_failed','bc_complete']:continue
+  if phase=='await_3d_gate':
+   source=sources[j['seed']];cp,score=latest_candidate(source['run_dir'])
+   if score<.5 or cp==j.get('last_gate_checkpoint'):
+    if source['phase'] in ['failed','bc_complete']:j['phase']='gate_failed';j['reason']='No passing new 3D checkpoint'
+    continue
+   usage=int(subprocess.check_output(['nvidia-smi',f"--id={j['gpu']}",'--query-gpu=memory.used','--format=csv,noheader,nounits'],text=True).strip())
+   if usage>=1000:j['reason']='Waiting for GPU to become free';continue
+   j['phase']='3d_gate_eval';j['last_gate_checkpoint']=cp;j['gate_attempt']=j.get('gate_attempt',0)+1
+   start(j,[str(r/'evaluate_bc.py'),source['run_dir'],'100'],r/f"logs/early_gate_seed{j['seed']}_{j['gate_attempt']}.log")
+   continue
+  if alive(j['pid']):continue
+  log=Path(j['log']).read_text(errors='replace')
+  if phase in ['3d_bc','2d_bc']:
+   if 'BC_STAGE_COMPLETE' not in log:j['phase']='failed';j['reason']='BC process failed';continue
+   j['phase']='3d_final_eval' if phase=='3d_bc' else '2d_final_eval'
+   start(j,[str(r/'evaluate_bc.py'),str(run),'100'],r/f"logs/{phase}_final_seed{j['seed']}.log")
+  else:
+   match=re.findall(r'BC_EVALUATION (\{[^\n]+\})',log)
+   if not match:j['phase']='failed';j['reason']='Evaluation process failed';continue
+   result=json.loads(match[-1]);j[phase]=result
+   if phase=='3d_gate_eval':
+    if result['success_rate']<.5:j['phase']='await_3d_gate';continue
+    j['phase']='2d_bc';assert not run.exists()
+    start(j,['train.py','--config-name=peg_2d_bc',f'hydra.run.dir={run}',f"training.seed={j['seed']}"],r/f"logs/rgb_bc_seed{j['seed']}.log")
+   else:j['phase']='bc_complete'
+ save()
+ if all(j['phase'] in ['failed','gate_failed','bc_complete'] for j in jobs):break
+ time.sleep(20)
+print('PAIRED_BC_FINISHED',flush=True)

@@ -1,0 +1,28 @@
+from pathlib import Path
+import os,signal,json,re,shutil,time,torch,dill
+from omegaconf import OmegaConf
+r=Path(__file__).parent
+assert not (r/'cap400_jobs.json').exists()
+sup=json.loads((r/'supervisor.json').read_text())['pid']
+assert b'watch_parallel_bc.py' in Path(f'/proc/{sup}/cmdline').read_bytes()
+os.kill(sup,signal.SIGTERM)
+jobs=json.loads((r/'pipeline_status.json').read_text())['jobs']
+for j in jobs:
+ s=Path(j['log']).read_text(errors='replace');j['observed_epoch']=int(re.findall(r'Training epoch (\d+):',s)[-1]);j['epoch_cap']=400
+ cpdir=Path(j['run_dir'])/'checkpoints';dest=Path(j['run_dir'])/'retained_checkpoints';dest.mkdir(exist_ok=True)
+ if j['observed_epoch']>=400:
+  assert j['run_dir'].encode() in Path(f"/proc/{j['pid']}/cmdline").read_bytes()
+  os.killpg(j['pid'],signal.SIGSTOP)
+ for cp in cpdir.glob('*.ckpt'):
+  p=torch.load(cp,map_location='cpu',pickle_module=dill)
+  epoch=int(dill.loads(p['pickles']['epoch']))
+  target=dest/f'epoch_{epoch:04d}_{cp.name}'
+  if not target.exists():shutil.copy2(cp,target)
+ if j['observed_epoch']>=400:
+  os.killpg(j['pid'],signal.SIGTERM);os.killpg(j['pid'],signal.SIGCONT);j['phase']='stopped_at_user_cap'
+ else:j['phase']='training_to_400'
+ j['retained_dir']=str(dest)
+ print(j['name'],j['phase'],j['observed_epoch'],flush=True)
+for mode in ['2d','3d']:
+ p=r/f'RL-100/rl_100/config/peg_{mode}_bc.yaml';c=OmegaConf.load(p);c.training.num_epochs=400;OmegaConf.save(c,p)
+(r/'cap400_jobs.json').write_text(json.dumps(dict(changed_unix=time.time(),jobs=jobs),indent=2))

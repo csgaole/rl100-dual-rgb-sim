@@ -1,0 +1,14 @@
+from pathlib import Path
+import os,sys,json,time,subprocess
+r=Path(__file__).resolve().parent
+for name in sys.argv[1:]:
+ run=r/name
+ def status(phase,**kw):(run/'audit_status.json').write_text(json.dumps(dict(phase=phase,time=time.time(),**kw)))
+ status('training')
+ p=subprocess.run(['bash',str(r/'run.sh'),str(r/'train_adv_audit.py'),f'--config-name={name}',f'hydra.run.dir={run}'])
+ if p.returncode:status('failed',exit_code=p.returncode);sys.exit(p.returncode)
+ status('testing')
+ env=dict(os.environ,FIX_EVAL_RUN=str(run))
+ p=subprocess.run(['bash',str(r/'run.sh'),str(r/'evaluate_offline_fix.py'),name.split('seed')[-1]],env=env)
+ status('complete' if p.returncode==0 else 'evaluation_failed',exit_code=p.returncode)
+ if p.returncode:sys.exit(p.returncode)

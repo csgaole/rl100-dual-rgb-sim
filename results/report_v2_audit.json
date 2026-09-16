@@ -1,0 +1,15 @@
+{
+  "added_runs": 10,
+  "added_stage_tests": 30,
+  "added_episodes": 3000,
+  "original_stage_tests": 28,
+  "original_episodes": 2800,
+  "aligned_branches": 180,
+  "remote_fingerprints": 72,
+  "queue": {
+    "phase": "complete",
+    "time": 1789477445.6112049
+  },
+  "html_sections": 14,
+  "checks": "100 episodes per stage; exact prescribed seed ranges; checkpoint existence and SHA256 captured remotely; no test-based selection; diagnostic sample counts verified"
+}

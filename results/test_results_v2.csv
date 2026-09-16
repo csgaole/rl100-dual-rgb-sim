@@ -1,0 +1,31 @@
+family,run,seed,test_seed_base,stage,successes,episodes,success_percent,nominal_wilson95,mean_return,checkpoint
+Dropout修复 BPPO,offline_fixed_full_seed100,100,910000,BC重评,94,100,94,87.5–97.2%,1067.4043980162664,${oc.env:RL100_DUAL_ROOT}/offline_fixed_full_seed100/checkpoints/latest.ckpt
+Dropout修复 BPPO,offline_fixed_full_seed100,100,910000,原始Offline最终,95,100,95,88.8–97.8%,1087.856939092451,${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last
+Dropout修复 BPPO,offline_fixed_full_seed100,100,910000,本实验最终,97,100,97,91.5–99.0%,1066.0717260052745,${oc.env:RL100_DUAL_ROOT}/offline_fixed_full_seed100/last
+Dropout修复 BPPO,offline_fixed_full_seed300,300,910000,BC重评,94,100,94,87.5–97.2%,1085.277570275214,${oc.env:RL100_DUAL_ROOT}/offline_fixed_full_seed300/checkpoints/latest.ckpt
+Dropout修复 BPPO,offline_fixed_full_seed300,300,910000,原始Offline最终,94,100,94,87.5–97.2%,1074.5964266387512,${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last
+Dropout修复 BPPO,offline_fixed_full_seed300,300,910000,本实验最终,92,100,92,85.0–95.9%,1063.8330912164429,${oc.env:RL100_DUAL_ROOT}/offline_fixed_full_seed300/last
+单步优势 BPPO,advantage1_val50_seed100,100,920000,BC重评,96,100,96,90.2–98.4%,1103.7888461062482,${oc.env:RL100_DUAL_ROOT}/advantage1_val50_seed100/checkpoints/latest.ckpt
+单步优势 BPPO,advantage1_val50_seed100,100,920000,原始Offline最终,96,100,96,90.2–98.4%,1103.4728712660783,${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last
+单步优势 BPPO,advantage1_val50_seed100,100,920000,本实验最终,97,100,97,91.5–99.0%,1117.2918248857723,${oc.env:RL100_DUAL_ROOT}/advantage1_val50_seed100/last
+单步优势 BPPO,advantage1_val50_seed300,300,920000,BC重评,95,100,95,88.8–97.8%,1105.3009902144624,${oc.env:RL100_DUAL_ROOT}/advantage1_val50_seed300/checkpoints/latest.ckpt
+单步优势 BPPO,advantage1_val50_seed300,300,920000,原始Offline最终,97,100,97,91.5–99.0%,1104.6721197291815,${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last
+单步优势 BPPO,advantage1_val50_seed300,300,920000,本实验最终,95,100,95,88.8–97.8%,1099.6740945987262,${oc.env:RL100_DUAL_ROOT}/advantage1_val50_seed300/last
+四步优势 BPPO,advantage4_val50_seed100,100,920000,BC重评,96,100,96,90.2–98.4%,1104.9530127449957,${oc.env:RL100_DUAL_ROOT}/advantage4_val50_seed100/checkpoints/latest.ckpt
+四步优势 BPPO,advantage4_val50_seed100,100,920000,原始Offline最终,96,100,96,90.2–98.4%,1105.9304587583104,${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last
+四步优势 BPPO,advantage4_val50_seed100,100,920000,本实验最终,94,100,94,87.5–97.2%,1081.7196463952841,${oc.env:RL100_DUAL_ROOT}/advantage4_val50_seed100/last
+四步优势 BPPO,advantage4_val50_seed300,300,920000,BC重评,98,100,98,93.0–99.4%,1114.1536757104961,${oc.env:RL100_DUAL_ROOT}/advantage4_val50_seed300/checkpoints/latest.ckpt
+四步优势 BPPO,advantage4_val50_seed300,300,920000,原始Offline最终,92,100,92,85.0–95.9%,1095.1458830105819,${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last
+四步优势 BPPO,advantage4_val50_seed300,300,920000,本实验最终,93,100,93,86.3–96.6%,1105.5173566861165,${oc.env:RL100_DUAL_ROOT}/advantage4_val50_seed300/last
+普通BC续训,value_remedy_uniform_seed100,100,930000,BC重评,95,100,95,88.8–97.8%,1091.5186045368728,${oc.env:RL100_DUAL_ROOT}/value_remedy_uniform_seed100/checkpoints/latest.ckpt
+普通BC续训,value_remedy_uniform_seed100,100,930000,原始Offline最终,96,100,96,90.2–98.4%,1089.3338955407983,${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last
+普通BC续训,value_remedy_uniform_seed100,100,930000,本实验最终,98,100,98,93.0–99.4%,1121.2397376841068,${oc.env:RL100_DUAL_ROOT}/value_remedy_uniform_seed100/last
+普通BC续训,value_remedy_uniform_seed300,300,930000,BC重评,94,100,94,87.5–97.2%,1072.2520226998531,${oc.env:RL100_DUAL_ROOT}/value_remedy_uniform_seed300/checkpoints/latest.ckpt
+普通BC续训,value_remedy_uniform_seed300,300,930000,原始Offline最终,95,100,95,88.8–97.8%,1080.5724919911383,${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last
+普通BC续训,value_remedy_uniform_seed300,300,930000,本实验最终,98,100,98,93.0–99.4%,1112.4829724205958,${oc.env:RL100_DUAL_ROOT}/value_remedy_uniform_seed300/last
+演示优势加权,value_remedy_weighted_seed100,100,930000,BC重评,97,100,97,91.5–99.0%,1093.5710729955454,${oc.env:RL100_DUAL_ROOT}/value_remedy_weighted_seed100/checkpoints/latest.ckpt
+演示优势加权,value_remedy_weighted_seed100,100,930000,原始Offline最终,97,100,97,91.5–99.0%,1102.2509103216787,${oc.env:RL100_DUAL_ROOT}/rl_full_seed100/last
+演示优势加权,value_remedy_weighted_seed100,100,930000,本实验最终,98,100,98,93.0–99.4%,1113.7448974864408,${oc.env:RL100_DUAL_ROOT}/value_remedy_weighted_seed100/last
+演示优势加权,value_remedy_weighted_seed300,300,930000,BC重评,96,100,96,90.2–98.4%,1079.019405383744,${oc.env:RL100_DUAL_ROOT}/value_remedy_weighted_seed300/checkpoints/latest.ckpt
+演示优势加权,value_remedy_weighted_seed300,300,930000,原始Offline最终,96,100,96,90.2–98.4%,1085.0830448580903,${oc.env:RL100_DUAL_ROOT}/rl_full_seed300/last
+演示优势加权,value_remedy_weighted_seed300,300,930000,本实验最终,99,100,99,94.6–99.8%,1082.7911202824034,${oc.env:RL100_DUAL_ROOT}/value_remedy_weighted_seed300/last

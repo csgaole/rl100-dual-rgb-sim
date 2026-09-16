@@ -1,0 +1,27 @@
+from pathlib import Path
+import torch,dill,hydra,copy,json,zarr,numpy as np
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+c=OmegaConf.load(r/'rl_full_seed100/.hydra/config.yaml')
+p=torch.load(r/'rl_full_seed100/checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+a=hydra.utils.instantiate(c.policy);a.load_state_dict(p['state_dicts']['model']);a.cuda().eval();b=copy.deepcopy(a)
+z=zarr.open_group(str(r/'data/metaworld_peg_insert_dual_rgb_gain20.zarr'),mode='r')['data']
+obs={k:torch.tensor(np.stack([z[k][i:i+2] for i in range(0,320,20)]),device='cuda',dtype=torch.float32) for k in ['image_corner2','image_behindGripper']}
+obs['agent_pos']=torch.tensor(np.stack([z['state'][i:i+2] for i in range(0,320,20)]),device='cuda',dtype=torch.float32)
+out=[]
+with torch.no_grad():
+ for mode in ['old_train_new_eval','both_train','both_eval']:
+  a.train(mode!='both_eval');b.train(mode=='both_train')
+  a.obs_encoder.eval();b.obs_encoder.eval()
+  torch.manual_seed(42);torch.cuda.manual_seed_all(42)
+  b.noise_scheduler.set_timesteps(b.num_inference_steps)
+  x,n,lp,cd,cm,lc,gc,f=a.all_step_logprob(obs,training=True)
+  vals=[]
+  for i,t in enumerate(a.noise_scheduler.timesteps):
+   ts=t.to('cuda').expand(x[i].shape[0]);mo=b.model(sample=x[i],timestep=b.get_unet_timesteps(ts),local_cond=lc,global_cond=gc)
+   new=b.noise_scheduler.step_forward_logprob(mo,ts,x[i],n[i])
+   delta=(new-lp[i]).sum(-1)
+   vals.append(dict(i=i,max_abs=float(delta.abs().max()),median_ratio=float(delta.exp().median())))
+  out.append(dict(mode=mode,steps=vals))
+print(json.dumps(out,indent=2));(r/'ratio_identity_modes.json').write_text(json.dumps(out,indent=2))

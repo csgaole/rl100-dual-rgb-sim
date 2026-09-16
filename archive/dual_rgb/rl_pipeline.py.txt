@@ -1,0 +1,20 @@
+from pathlib import Path
+import sys, subprocess, json, time
+root=Path(__file__).resolve().parent
+name,run,mode=sys.argv[1:];run=Path(run)
+status=run/'pipeline_status.json'
+def write(phase,**kw):
+ status.write_text(json.dumps(dict(phase=phase,updated_unix=time.time(),**kw),indent=2))
+write('training_foundation_offline_online')
+p=subprocess.run(['bash',str(root/'run.sh'),str(root/'train_dual_rl.py'),f'--config-name={name}',f'hydra.run.dir={run}'])
+if p.returncode:
+ write('training_failed',exit_code=p.returncode);sys.exit(p.returncode)
+assert (run/'best/model.pt').exists(), 'Offline best missing'
+assert (run/'online_best/model.pt').exists(), 'Online best missing'
+write('heldout_evaluation')
+# The original evaluator is modality-generic and reads this run's dual-view config.
+import os
+env=os.environ.copy();env['EVAL_EPISODES']='2' if mode=='smoke' else '100'
+p=subprocess.run(['bash',str(root/'run.sh'),str(root.parent/'peg_rl_complete_v2/evaluate_stages.py'),str(run)],env=env)
+write('complete' if p.returncode==0 else 'evaluation_failed',exit_code=p.returncode)
+sys.exit(p.returncode)

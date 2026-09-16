@@ -1,0 +1,16 @@
+from pathlib import Path
+r=Path(__file__).resolve().parent
+s=(r/'train_dual_rl.py').read_text()
+needle='            losses = self.unio4.update_distribution('
+assert s.count(needle)==1
+s=s.replace(needle,'''            # PPO likelihoods must use the same deterministic neural mapping.
+            # eval() disables dropout; it does not disable autograd.
+            self.unio4._policy.eval()
+            self.unio4._old_policy.eval()
+'''+needle)
+# Set old policy to eval before initial OPE too; later clones inherit eval mode.
+needle='        self.unio4.set_old_policy()\n        # Fix encoder in eval mode'
+assert s.count(needle)==1
+s=s.replace(needle,'        self.unio4._policy.eval()\n        self.unio4.set_old_policy()\n        self.unio4._old_policy.eval()\n        # Fix encoder in eval mode')
+compile(s,'train_offline_fixed.py','exec');(r/'train_offline_fixed.py').write_text(s)
+print('OFFLINE_DROPOUT_FIX_READY')

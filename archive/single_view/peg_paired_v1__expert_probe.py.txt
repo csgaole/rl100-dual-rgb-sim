@@ -1,0 +1,15 @@
+from pathlib import Path
+import sys,json,numpy as np
+from paired_env import PairedPegEnv
+from metaworld.policies import SawyerPegInsertionSideV2Policy
+p=float(sys.argv[1]);wrapper=PairedPegEnv(device='cuda:0',num_points=512,rgb_size=84);env=wrapper.env
+policy=SawyerPegInsertionSideV2Policy();results=[]
+start=int(sys.argv[2]) if len(sys.argv)>2 else 50000
+for seed in range(start,start+100):
+ wrapper.seed(seed);obs=wrapper.reset()['full_state'];succeeded=False
+ for t in range(200):
+  action=policy.get_action(obs);action[:3]*=p/25;obs,r,done,info=env.step(np.clip(action,-1,1));succeeded|=bool(info['success'])
+ results.append(dict(seed=seed,success=succeeded))
+ if len(results)%10==0:print(p,len(results),sum(x['success'] for x in results),flush=True)
+out=dict(gain=p,episodes=100,success_rate=sum(x['success'] for x in results)/100,results=results)
+(Path(__file__).parent/f'seeded_expert_gain{int(p)}_seed{start}.json').write_text(json.dumps(out,indent=2))

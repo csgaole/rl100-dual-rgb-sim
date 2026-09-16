@@ -1,0 +1,11 @@
+from pathlib import Path
+root=Path(__file__).resolve().parent
+s=(root/'train_repaired.py').read_text()
+s=s.replace('from rl_100.unidpg.online_buffer import ReplayBuffer','from dual_rl_buffer import ReplayBuffer')
+s=s.replace('from rl_100.unidpg.online_buffer_vec import ReplayBuffer','from dual_rl_buffer import ReplayBuffer')
+start=s.index('                # flatten vec buffer into flat buffer')
+end=s.index('\n                precomputed = {',start)
+s=s[:start]+'                flat_replay.load_flattened(replay_buffer)\n'+s[end:]
+compile(s,str(root/'train_dual_rl.py'),'exec')
+(root/'train_dual_rl.py').write_text(s)
+print('DUAL_RL_TRAINER_READY')

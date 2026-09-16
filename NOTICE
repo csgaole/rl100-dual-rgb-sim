@@ -1,0 +1,7 @@
+RL-100
+Copyright 2026 Kun Lei
+
+This product includes third-party software and assets. Their notices and
+licenses are retained in the corresponding third_party directories.
+
+This repository adds dual-RGB simulation adapters, training fixes, experiment documentation and evaluation records. Modified files are tracked in provenance/source_manifest.json. Upstream snapshot: 64264d952c1fda9d5096c090ddaa7177757a77ad. Third-party dependencies retain their original licenses.

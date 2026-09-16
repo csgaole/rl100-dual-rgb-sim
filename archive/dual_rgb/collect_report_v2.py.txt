@@ -1,0 +1,26 @@
+from pathlib import Path
+import json,hashlib,time
+r=Path('${oc.env:RL100_DUAL_ROOT}')
+out=dict(collected_unix=time.time(),root=str(r),runs=[],diagnostics={},sha256={})
+def read(p):
+ raw=p.read_bytes();out['sha256'][str(p.relative_to(r))]=hashlib.sha256(raw).hexdigest();return json.loads(raw)
+for family,names,base in [('dropout_fixed',[f'offline_fixed_full_seed{s}' for s in [100,300]],910000),('single_advantage',[f'advantage1_val50_seed{s}' for s in [100,300]],920000),('four_advantage',[f'advantage4_val50_seed{s}' for s in [100,300]],920000),('uniform_bc',[f'value_remedy_uniform_seed{s}' for s in [100,300]],930000),('weighted_bc',[f'value_remedy_weighted_seed{s}' for s in [100,300]],930000)]:
+ for name in names:
+  p=r/name;run=dict(family=family,name=name,seed=int(name.split('seed')[-1]),test_seed_base=base,stages=[])
+  for fn in ['fix_pipeline_status.json','audit_status.json','training_complete.json','validation.json']:
+   if (p/fn).exists():run[fn]=read(p/fn)
+  for stage in read(p/'paired_offline_evaluation.json'):
+   compact=dict(stage=stage['stage'],checkpoint=stage['checkpoint'],episodes=[])
+   for ep in stage['episodes']:
+    compact['episodes'].append(dict(seed=ep['seed'],success=ep['success'],return_=ep['return_'],initial_obs=ep['trace'][0]['obs']))
+   cp=Path(stage['checkpoint']);files=[cp] if cp.is_file() else [cp/'model.pt',cp/'encoder.pt']
+   compact['files']=[]
+   for f in files:
+    assert f.exists(),f
+    digest=hashlib.sha256(f.read_bytes()).hexdigest();out['sha256'][str(f.relative_to(r))]=digest;compact['files'].append(dict(path=str(f),sha256=digest))
+   run['stages'].append(compact)
+  out['runs'].append(run)
+for dirname in ['offline_diagnostics_v2','offline_diagnostics_v3']:
+ for p in sorted((r/dirname).glob('*.json')):out['diagnostics'][dirname+'/'+p.name]=read(p)
+out['queue']=read(r/'value_remedy_queue_status.json')
+print(json.dumps(out,ensure_ascii=False))

@@ -1,0 +1,30 @@
+from pathlib import Path
+import json
+import os
+import subprocess
+import time
+
+
+root = Path(__file__).resolve().parent
+logs = root / "logs"
+logs.mkdir(exist_ok=True)
+jobs = []
+for seed, gpu in ((100, 5), (300, 6)):
+    run_dir = root / "runs" / f"dual_rgb_bc_seed{seed}"
+    log_path = logs / f"dual_rgb_bc_seed{seed}.log"
+    log = log_path.open("ab", buffering=0)
+    env = os.environ.copy()
+    env["GPU_ID"] = str(gpu)
+    process = subprocess.Popen(
+        ["bash", str(root / "run.sh"), "train.py", f"--config-name=peg_dual_rgb_bc_seed{seed}", f"hydra.run.dir={run_dir}"],
+        cwd=root,
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    jobs.append({"seed": seed, "gpu": gpu, "pid": process.pid, "epochs": 250, "run_dir": str(run_dir), "log": str(log_path)})
+
+manifest = {"started_unix": time.time(), "jobs": jobs}
+(root / "bc_jobs.json").write_text(json.dumps(manifest, indent=2))
+print(json.dumps(manifest, indent=2))

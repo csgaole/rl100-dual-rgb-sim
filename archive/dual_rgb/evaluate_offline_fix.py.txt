@@ -1,0 +1,35 @@
+from pathlib import Path
+import os,sys,torch,dill,hydra,json,numpy as np,random,hashlib
+from omegaconf import OmegaConf
+r=Path(__file__).resolve().parent;seed=int(sys.argv[1]);run=r/f'offline_fixed_full_seed{seed}';old=r/f'rl_full_seed{seed}'
+run=Path(os.environ.get('FIX_EVAL_RUN',str(run)))
+OmegaConf.register_new_resolver('eval',eval,replace=True)
+c=OmegaConf.load(run/'.hydra/config.yaml');p=torch.load(run/'checkpoints/latest.ckpt',map_location='cpu',pickle_module=dill)
+torch.backends.cudnn.benchmark=False;torch.backends.cudnn.deterministic=True;torch.use_deterministic_algorithms(True)
+results=[]
+count=int(os.environ.get("FIX_EVAL_EPISODES","100"))
+# Predeclared fresh test seeds, no model selection from these results.
+for label,path in [('bc',None),('original_offline_last',old/'last'),('fixed_offline_last',run/'last')]:
+ m=hydra.utils.instantiate(c.policy);m.load_state_dict(p['state_dicts']['model'])
+ if path:
+  m.model.load_state_dict(torch.load(path/'model.pt',map_location='cpu'))
+  m.obs_encoder.load_state_dict(torch.load(path/'encoder.pt',map_location='cpu'))
+ m.cuda().eval();m.use_aug=False
+ runner=hydra.utils.instantiate(c.task.env_runner,output_dir=str(run),eval_episodes=100)
+ episodes=[]
+ for index in range(count):
+  eval_seed=(920000 if run.name.startswith('advantage') else 910000)+index
+  torch.manual_seed(eval_seed);torch.cuda.manual_seed_all(eval_seed);np.random.seed(eval_seed);random.seed(eval_seed)
+  runner.env.seed(eval_seed);obs=runner.env.reset();m.reset();success=False;ret=0.;trace=[]
+  for step in range(50):
+   inp={k:torch.as_tensor(obs[k],device='cuda',dtype=torch.float32).unsqueeze(0) for k in ['image_corner2','image_behindGripper','agent_pos']}
+   hashes={k:hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k,v in obs.items()}
+   with torch.no_grad():a=m.predict_action(inp,deterministic=True)['action'][0].cpu().numpy()
+   obs,reward,done,info=runner.env.step(a);ret+=float(reward);success=success or bool(np.max(info['success']))
+   trace.append(dict(obs=hashes,action=a.tolist(),reward=float(reward)))
+   if np.all(done):break
+  episodes.append(dict(seed=eval_seed,success=success,return_=ret,trace=trace))
+ result=dict(stage=label,checkpoint=str(path or run/'checkpoints/latest.ckpt'),episodes=episodes,success_rate=sum(x['success'] for x in episodes)/count)
+ results.append(result);(run/('paired_offline_evaluation.json' if count==100 else 'paired_offline_evaluation_smoke.json')).write_text(json.dumps(results))
+ print('PAIRED_STAGE_COMPLETE',label,result['success_rate'],flush=True)
+ runner.env.close();del m,runner;torch.cuda.empty_cache()

@@ -1,0 +1,86 @@
+from pathlib import Path
+import shutil,hashlib,json,datetime
+from omegaconf import OmegaConf
+root=Path('<EXPERIMENT_ROOT>')
+dest=root/'repairs_v1'
+assert not dest.exists(), 'Repair directory already exists; inspect before retrying'
+src=root/'repo/RL-100'; code=dest/'RL-100'
+shutil.copytree(src,code,ignore=shutil.ignore_patterns('.git','__pycache__','wandb','data','outputs'))
+
+def replace(path,old,new,count=1):
+ p=code/path;s=p.read_text();assert s.count(old)==count,(path,s.count(old),old);p.write_text(s.replace(old,new))
+
+(code/'rl_100/unidpg/repair_utils.py').write_text('''import numpy as np
+
+def true_terminal(done, info):
+    """Old Gym: preserve bootstrap at TimeLimit truncation, stop GAE at all done boundaries."""
+    return bool(done) and not bool(np.asarray(info.get('TimeLimit.truncated', False)).any())
+''')
+replace(Path('train.py'),'import wandb\n','import wandb\nfrom rl_100.unidpg.repair_utils import true_terminal\n')
+old='dw = done and episode_steps_per_env[i] != max_steps'
+replace(Path('train.py'),old,"dw = (true_terminal(done, info) if getattr(self.cfg.ppo, 'repair_timeout', False) else done and episode_steps_per_env[i] != max_steps)",2)
+replace(Path('train.py'),"if done and 'terminal_observation' in info:\n", "if done and getattr(self.cfg.ppo, 'repair_timeout', False):\n                        assert 'terminal_observation' in info, 'Missing terminal observation at auto-reset'\n                    if done and 'terminal_observation' in info:\n")
+# Deterministic actor encoding on all online likelihood paths, without freezing gradients.
+p=Path('rl_100/unidpg/uni_ppo.py')
+replace(p,'self._policy.obs_encoder.eval() # eval encoder for online finetuning; ','''self._policy.obs_encoder.eval() # eval encoder for online finetuning;
+        if getattr(cfg.ppo, 'repair_probability', False):
+            assert not cfg.ppo.force_stochastic_online
+            self._policy.use_aug = False
+            self._policy.obs_encoder.force_stochastic = False
+            self._old_policy.use_aug = False
+            self._old_policy.obs_encoder.force_stochastic = False
+            print('REPAIR probability: deterministic visual conditioning; diffusion exploration retained', flush=True)
+''')
+replace(p,'obs_feature = self._policy.obs2latent(state)','obs_feature = self._policy.obs2latent(state, training=not getattr(self.args, "repair_probability", False))')
+# Preserve ratio history; add correlation identifiers. Both branches receive identical instrumentation.
+replace(p,'mode = "a" if file_exists and self._ratio_log_written_until > 0 else "w"','mode = "a" if file_exists else "w"')
+replace(p,'"idx": self._ratio_log_counter,\n            "phase": phase,','"idx": self._ratio_log_counter,\n            "update_id": self.iteration,\n            "phase": phase,')
+# Validate real rollout likelihood before the first optimizer update, not just dataset input.
+needle='        self.iteration += 1\n\n        # bc training before ppo improvement'
+# source may have no blank separator; use exact function entry.
+needle='    def dp_align_update_no_share(self, replay_buffer, total_steps, precomputed=None):\n        self.iteration += 1'
+new='''    def dp_align_update_no_share(self, replay_buffer, total_steps, precomputed=None):
+        if getattr(self.args, 'repair_probability', False) and not getattr(self, '_repair_checked', False):
+            states, actions, old_lp, *_ = replay_buffer.numpy_to_tensor()
+            states = dict_apply(states, lambda x: x[:16])
+            actions = actions[:16].transpose(0, 1)
+            old_lp = old_lp[:16].transpose(0, 1)
+            with torch.no_grad():
+                features = self._policy.obs2latent(states, training=False)
+                worst = 0.0
+                for i, t in enumerate(self._policy.noise_scheduler.timesteps):
+                    ts = torch.as_tensor(t, device=self._device).reshape(1).expand(16)
+                    output = self._policy.model(sample=actions[i], timestep=self._policy.get_unet_timesteps(ts), local_cond=None, global_cond=features)
+                    now, _ = self._policy.noise_scheduler.step_forward_logprob_with_entropy(output, ts, actions[i], next_sample=actions[i+1], eta=self.args.eta)
+                    error = (now.sum(-1) - old_lp[i].sum(-1)).abs().max().item()
+                    assert np.isfinite(error)
+                    worst = max(worst, error)
+                assert worst < 1e-3, f'Likelihood invariance failed: {worst}'
+                print(f'REPAIR live likelihood invariance PASS max_abs_logratio={worst}', flush=True)
+            self._repair_checked = True
+        self.iteration += 1'''
+replace(p,needle,new)
+original=root/'runs/rgb_seed200'
+records=[]
+for label,gpu,timeout in [('probability',6,False),('probability_timeout',7,True)]:
+ run=dest/'runs'/label;run.mkdir(parents=True)
+ shutil.copytree(original/'checkpoints',run/'checkpoints')
+ shutil.copytree(original/'best',run/'best')
+ for name in ['Q_bc_20.pt','value_20.pt','encoder.pt']:
+  if (original/name).exists():shutil.copy2(original/name,run/name)
+ cfg=OmegaConf.load(original/'.hydra/config.yaml')
+ cfg.offline=False;cfg.online=True;cfg.training.resume=True
+ cfg.ppo.force_stochastic_online=False;cfg.policy.use_aug=False
+ cfg.ppo.repair_probability=True;cfg.ppo.repair_timeout=timeout
+ # Preserve full baseline learning-rate schedule and all other optimization settings.
+ cfg.ppo.max_train_steps=1000000
+ cfg.ppo.load_online_cp=False
+ cfg.ppo.enable_ratio_logging=True
+ cfg.ppo.ratio_plot_on_final_flush=False
+ OmegaConf.save(cfg,code/f'rl_100/config/repair_{label}.yaml')
+ hashes={name:hashlib.sha256((run/name).read_bytes()).hexdigest() for name in ['best/model.pt','best/encoder.pt','Q_bc_20.pt','value_20.pt','checkpoints/latest.ckpt']}
+ records.append(dict(label=label,gpu=gpu,seed=200,run=str(run),initial_artifact_sha256=hashes))
+(dest/'logs').mkdir()
+manifest=dict(prepared_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),source=str(original),code=str(code),experiments=records)
+(dest/'manifest.json').write_text(json.dumps(manifest,indent=2))
+print(json.dumps(manifest,indent=2))
